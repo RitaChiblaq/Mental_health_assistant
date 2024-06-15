@@ -1,5 +1,7 @@
 import os
 import base64
+import time
+
 import yaml
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -90,23 +92,50 @@ def analyze_sentiment_and_tone(text):
         print(f"Error analyzing sentiment and tone: {e}")
         return f"Error: {e}"
 
+def analyze_mental_health(text):
+    try:
+        prompt = (
+            "Please analyze the following email and identify any indications of mental health issues "
+            "such as aggression, panic attacks, depression, anxiety, stress, or any other concerning behaviors. "
+            "Provide a detailed analysis and identify specific sentences or phrases that suggest these issues.\n\n"
+            f"Email: {text}"
+        )
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": prompt}
+            ]
+        )
+        analysis = response['choices'][0]['message']['content'].strip()
+        return analysis
+    except Exception as e:
+        print(f"Error analyzing mental health: {e}")
+        return f"Error: {e}"
 
-def detect_changes_in_behavior(email_data):
-    behavior_analysis = []
-    for email in email_data:
-        analysis = analyze_sentiment_and_tone(email['body'])
-        behavior_analysis.append({
-            'subject': email['subject'],
-            'analysis': analysis
-        })
-    return behavior_analysis
+
+def analyze_new_emails():
+    try:
+        # Get the list of sent emails
+        results = service.users().messages().list(userId='me', q='in:sent', maxResults=10).execute()
+        messages = results.get('messages', [])
+        email_data = []
+
+        for message in messages:
+            msg = service.users().messages().get(userId='me', id=message['id'], format='raw').execute()
+            msg_str = base64.urlsafe_b64decode(msg['raw'].encode('ASCII'))
+            mime_msg = BytesParser(policy=policy.default).parsebytes(msg_str)
+            email_data.append({
+                'id': message['id'],
+                'subject': mime_msg['subject'],
+                'from': mime_msg['from'],
+                'to': mime_msg['to'],
+                'body': get_email_body(mime_msg)
+            })
+
+        return email_data
+    except Exception as e:
+        print(f"Error fetching emails: {e}")
+        return []
 
 
-# Example usage
-emails = get_emails(query='in:sent')
-
-behavior_analysis = detect_changes_in_behavior(emails)
-
-for analysis in behavior_analysis:
-    print(f"Subject: {analysis['subject']}")
-    print(f"Analysis: {analysis['analysis']}\n")
