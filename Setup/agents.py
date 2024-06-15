@@ -1,31 +1,22 @@
 import os
-from http import client
-
-import config
-from openai import OpenAI
-
-import yaml
 import base64
+import yaml
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
-from email import message_from_bytes, policy
+from email import policy
 from email.parser import BytesParser
+from openai import OpenAI
+
+
+import json
 
 # Load configuration
 config_path = "/Users/ritachiblaq/Library/CloudStorage/OneDrive-Personal/HTW/4.Semester/Unternehmenssoftware/Assignments/Mental_health_assistant/config.yaml"
 oauth_client_secret_file = "/Users/ritachiblaq/Downloads/client_secret_868701777334-iftiplo2g719831dt8f6ah0kdi4cl2db.apps.googleusercontent.com.json"
-
-try:
-    with open(config_path, 'r') as file:
-        config = yaml.safe_load(file)
-        if not isinstance(config, dict):
-            raise ValueError("Config file is not properly formatted.")
-except Exception as e:
-    print(f"Error loading config file: {e}")
-    raise
-
+config = yaml.safe_load(open(config_path))
+client = OpenAI(api_key=config['KEYS']['openai'])
 # Set up OpenAI API key
 
 # Authenticate and set up Gmail API using OAuth 2.0
@@ -44,9 +35,7 @@ if not creds or not creds.valid:
     if creds and creds.expired and creds.refresh_token:
         creds.refresh(Request())
     else:
-        flow = InstalledAppFlow.from_client_secrets_file(
-            oauth_client_secret_file, SCOPES
-        )
+        flow = InstalledAppFlow.from_client_secrets_file(oauth_client_secret_file, SCOPES)
         creds = flow.run_local_server(port=8080)
 
     # Save the credentials for the next run
@@ -54,6 +43,7 @@ if not creds or not creds.valid:
         token.write(creds.to_json())
 
 service = build('gmail', 'v1', credentials=creds)
+
 
 def get_emails(user_id='me', query='in:sent', max_results=10):
     try:
@@ -77,6 +67,7 @@ def get_emails(user_id='me', query='in:sent', max_results=10):
         print(f"Error fetching emails: {e}")
         return []
 
+
 def get_email_body(mime_msg):
     if mime_msg.is_multipart():
         for part in mime_msg.iter_parts():
@@ -85,22 +76,37 @@ def get_email_body(mime_msg):
     else:
         return mime_msg.get_payload(decode=True).decode(mime_msg.get_content_charset())
 
-def analyze_sentiment(text):
+
+def analyze_sentiment_and_tone(text):
     try:
         response = client.chat.completions.create(model="gpt-3.5-turbo",
         messages=[
             {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": f"Analyze the sentiment of this text: {text}"}
+            {"role": "user", "content": f"Analyze the sentiment, the emotions and tone of this text: {text}"}
         ])
-        sentiment = response.choices[0].message.content.strip()
-        return sentiment
+        analysis = response.choices[0].message.content.strip()
+        return analysis
     except Exception as e:
-        print(f"Error analyzing sentiment: {e}")
-        return "Error"
+        print(f"Error analyzing sentiment and tone: {e}")
+        return f"Error: {e}"
 
+
+def detect_changes_in_behavior(email_data):
+    behavior_analysis = []
+    for email in email_data:
+        analysis = analyze_sentiment_and_tone(email['body'])
+        behavior_analysis.append({
+            'subject': email['subject'],
+            'analysis': analysis
+        })
+    return behavior_analysis
+
+
+# Example usage
 emails = get_emails(query='in:sent')
 
-for email in emails:
-    sentiment = analyze_sentiment(email['body'])
-    print(f"Subject: {email['subject']}")
-    print(f"Sentiment: {sentiment}\n")
+behavior_analysis = detect_changes_in_behavior(emails)
+
+for analysis in behavior_analysis:
+    print(f"Subject: {analysis['subject']}")
+    print(f"Analysis: {analysis['analysis']}\n")
