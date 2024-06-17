@@ -1,16 +1,21 @@
+import time
+
+from Setup.agents import analyze_new_emails, analyze_sentiment_and_tone
 
 # https://fastapi.tiangolo.com/tutorial/first-steps/
 
-import uvicorn
-from fastapi import FastAPI
+analyzed_emails = set()
 
-app = FastAPI()
+while True:
+    new_emails = analyze_new_emails()
+    for email in new_emails:
+        if email['id'] not in analyzed_emails:
+            analysis = analyze_sentiment_and_tone(email['body'])
+            print(f"Subject: {email['subject']}")
+            print(f"Analysis: {analysis}\n")
+            analyzed_emails.add(email['id'])
 
-
-@app.get("/")
-async def root():
-    return {"message": "Hello World"}
-
+    time.sleep(60)  # Wait for 60 seconds before checking for new emails again
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="localhost", port=4000)
+    main()
