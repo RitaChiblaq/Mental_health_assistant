@@ -1,29 +1,35 @@
-import chainlit as cl
-import requests
+import tkinter as tk
+from PIL import Image, ImageTk
+from tkinter import font
 
+def main():
+    # Create the main window
+    root = tk.Tk()
+    root.title("Mental Assistant")
+    root.geometry("375x667")  # Size of an iPhone screen
+    root.configure(bg='white')
 
-@cl.on_chat_start
-def on_chat_start():
-    cl.user_session.set("hist", "")
+    # Load the custom font
+    inter_semi_bold = font.Font(family="Inter", size=24, weight="bold")
 
+    # Add the image
+    image_path = "/Users/klaudia/Documents/Mental_health_assistant/FE/resources/image_brain.png"
+    image = Image.open(image_path)
+    image = image.resize((450, 450), Image.LANCZOS)
+    photo = ImageTk.PhotoImage(image)
 
-@cl.on_message
-async def on_message(message: cl.Message):
-    hist = cl.user_session.get("hist")
+    # Create a canvas to place the image and text
+    canvas = tk.Canvas(root, width=375, height=500, bg='white', highlightthickness=0)
+    canvas.pack()
 
-    params = {
-        "text": hist + message.content,
-    }
+    # Center the image on the canvas
+    canvas.create_image(187.5, 380, image=photo)  # Center position for the image
 
-    url = 'http://localhost:4000/chat'
+    # Add the text above the image
+    canvas.create_text(187.5, 180, text="Mental Assistant", font=inter_semi_bold, fill="#1DB981")
 
-    x = requests.post(url, json=params)
-
-    cl.user_session.set("hist", hist + ' ' + x.text)
-
-    await cl.Message(content=x.text).send()
-
+    # Run the application
+    root.mainloop()
 
 if __name__ == "__main__":
-    from chainlit.cli import run_chainlit
-    run_chainlit("app.py")
+    main()
