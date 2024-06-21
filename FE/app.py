@@ -10,7 +10,7 @@ def main():
     root.configure(bg='white')
 
     # Load the custom font
-    inter_semi_bold = font.Font(family="Inter", size=24, weight="bold")
+    inter_semi_bold = font.Font(family="Inter", size=24)
 
     # Add the image
     image_path = "/Users/klaudia/Documents/Mental_health_assistant/FE/resources/image_brain.png"
