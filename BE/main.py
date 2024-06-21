@@ -1,6 +1,3 @@
-
-# https://fastapi.tiangolo.com/tutorial/first-steps/
-
 import uvicorn
 from fastapi import FastAPI
 

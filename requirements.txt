@@ -1,0 +1,5 @@
+uvicorn~=0.25.0
+fastapi~=0.109.2
+chainlit~=1.0.506
+requests~=2.31.0
+SQLAlchemy~=2.0.30

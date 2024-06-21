@@ -1,0 +1,1 @@
+DATABASE_URI = 'postgresql+psycopg2://username:password@localhost/mental_health_app'
