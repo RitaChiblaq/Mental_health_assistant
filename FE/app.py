@@ -1,35 +1,55 @@
-import tkinter as tk
-from PIL import Image, ImageTk
-from tkinter import font
+# app.py
+import sys
+sys.path.insert(0, '/Users/ritachiblaq/Library/CloudStorage/OneDrive-Personal/HTW/4.Semester/Unternehmenssoftware/Assignments/project/Setup')
+from Setup import agents
+import pandas as pd
+import streamlit as st
+st.title("Mental Health Support Chatbot")
 
-def main():
-    # Create the main window
-    root = tk.Tk()
-    root.title("Mental Assistant")
-    root.geometry("375x667")  # Size of an iPhone screen
-    root.configure(bg='white')
+if 'messages' not in st.session_state:
+    st.session_state['messages'] = []
+if 'mood_tracker' not in st.session_state:
+    st.session_state['mood_tracker'] = []
 
-    # Load the custom font
-    inter_semi_bold = font.Font(family="Inter", size=24)
+with st.form(key='chat_form'):
+    user_message = st.text_input("You:").strip()
+    submit_button = st.form_submit_button(label='Send') and user_message
 
-    # Add the image
-    image_path = "/Users/klaudia/Documents/Mental_health_assistant/FE/resources/image_brain.png"
-    image = Image.open(image_path)
-    image = image.resize((450, 450), Image.LANCZOS)
-    photo = ImageTk.PhotoImage(image)
+if submit_button:
+    st.session_state['messages'].append(("You", user_message))
 
-    # Create a canvas to place the image and text
-    canvas = tk.Canvas(root, width=375, height=500, bg='white', highlightthickness=0)
-    canvas.pack()
+    sentiment, polarity = agents.analyze_sentiment(user_message)
+    coping_strategy = agents.provide_coping_strategy(sentiment)
 
-    # Center the image on the canvas
-    canvas.create_image(187.5, 380, image=photo)  # Center position for the image
+    response = agents.generate_response(user_message)
 
-    # Add the text above the image
-    canvas.create_text(187.5, 180, text="Mental Assistant", font=inter_semi_bold, fill="#1DB981")
+    st.session_state['messages'].append(("Bot", response))
+    st.session_state['mood_tracker'].append((user_message, sentiment, polarity))
 
-    # Run the application
-    root.mainloop()
+for sender, message in st.session_state['messages']:
+    if sender == "You":
+        st.text(f"You: {message}")
+    else:
+        st.text(f"Bot: {message}")
 
-if __name__ == "__main__":
-    main()
+# Display mood tracking chart
+if st.session_state['mood_tracker']:
+    mood_data = pd.DataFrame(st.session_state['mood_tracker'], columns=["Message", "Sentiment", "Polarity"])
+    st.line_chart(mood_data['Polarity'])
+
+# Display coping strategies
+if user_message:
+    st.write(f"Suggested Coping Strategy: {coping_strategy}")
+
+# Display resources
+st.sidebar.title("Resources")
+st.sidebar.write("If you need immediate help, please contact one of the following resources:")
+st.sidebar.write("1. National Suicide Prevention Lifeline: 1-800-273-8255")
+st.sidebar.write("2. Crisis Text Line: Text 'HELLO' to 741741")
+st.sidebar.write("[More Resources](https://www.mentalhealth.gov/get-help/immediate-help)")
+
+# Display session summary
+if st.sidebar.button("Show Session Summary"):
+    st.sidebar.write("### Session Summary")
+    for i, (message, sentiment, polarity) in enumerate(st.session_state['mood_tracker']):
+        st.sidebar.write(f"{i+1}. {message} - Sentiment: {sentiment} (Polarity: {polarity})")
