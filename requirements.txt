@@ -6,3 +6,4 @@ SQLAlchemy~=2.0.31
 pandas~=2.2.2
 streamlit~=1.36.0
 textblob~=0.18.0.post0
+flask~=2.3.3
