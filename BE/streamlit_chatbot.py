@@ -9,44 +9,20 @@ import openai
 # Update this path to the correct one
 sys.path.insert(0, '/Users/klaudia/Documents/Mental_health_assistant/Setup')
 
-
 # Load configuration
 config_path = Path('/Users/klaudia/Documents/Mental_health_assistant/config.yaml')
 config = yaml.safe_load(open(config_path))
 openai.api_key = config['KEYS']['openai']
-
 
 # Custom CSS
 def local_css(file_name):
     with open(file_name) as f:
         st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
 
-
 # Ensure the path to the style.css file is correct
 local_css("/Users/klaudia/Documents/Mental_health_assistant/FE/.streamlit/style.css")
 
-
-# JavaScript to adjust the height of the text input
-def adjust_textarea_height():
-    st.markdown("""
-    <script>
-    function resizeInput() {
-        this.style.height = 'auto';
-        this.style.height = (this.scrollHeight) + 'px';
-    }
-
-    document.querySelectorAll('input[type="text"]').forEach(function(input) {
-        input.setAttribute('style', 'height:' + (input.scrollHeight) + 'px;overflow-y:hidden;');
-        input.addEventListener('input', resizeInput, false);
-    });
-    </script>
-    """, unsafe_allow_html=True)
-
-
-adjust_textarea_height()
-
-
-# Function to generate a response from GPT-3
+# Function to generate a response from GPT-3.5-turbo
 def generate_response(prompt):
     try:
         response = openai.ChatCompletion.create(
@@ -97,19 +73,23 @@ if 'mood_tracker' not in st.session_state:
     st.session_state['mood_tracker'] = []
 
 with st.form(key='chat_form'):
-    user_message = st.text_input("You:", value="", key="input_text", max_chars=None, type="default")
+    user_message = st.text_input("You:").strip()
     submit_button = st.form_submit_button(label='Send') and user_message
 
 if submit_button:
-    st.session_state['messages'].append(("You", user_message))
+    word_count = len(user_message.split())
+    if word_count < 5:
+        st.warning("Please enter at least 5 words.")
+    else:
+        st.session_state['messages'].append(("You", user_message))
 
-    sentiment, polarity = analyze_sentiment(user_message)
-    coping_strategy = provide_coping_strategy(sentiment)
+        sentiment, polarity = analyze_sentiment(user_message)
+        coping_strategy = provide_coping_strategy(sentiment)
 
-    response = generate_response(user_message)
+        response = generate_response(user_message)
 
-    st.session_state['messages'].append(("Bot", response))
-    st.session_state['mood_tracker'].append((user_message, sentiment, polarity))
+        st.session_state['messages'].append(("Bot", response))
+        st.session_state['mood_tracker'].append((user_message, sentiment, polarity))
 
 for sender, message in st.session_state['messages']:
     if sender == "You":
@@ -131,10 +111,20 @@ st.sidebar.title("Resources")
 st.sidebar.write("If you need immediate help, please contact one of the following resources:")
 st.sidebar.write("1. National Suicide Prevention Lifeline: 1-800-273-8255")
 st.sidebar.write("2. Crisis Text Line: Text 'HELLO' to 741741")
+st.sidebar.write("3. SAMHSA’s National Helpline: 1-800-662-HELP (4357)")
 st.sidebar.write("[More Resources](https://www.mentalhealth.gov/get-help/immediate-help)")
+
+# Add guidelines for interacting with the chatbot
+st.sidebar.title("How to Interact with the Chatbot")
+st.sidebar.write("""
+- Please enter at least 5 words.
+- Include your feelings or emotions in the message.
+- Be as specific as possible about your current situation or problems.
+- Example: "I am feeling very anxious about my upcoming exams."
+""")
 
 # Display session summary
 if st.sidebar.button("Show Session Summary"):
     st.sidebar.write("### Session Summary")
     for i, (message, sentiment, polarity) in enumerate(st.session_state['mood_tracker']):
-        st.sidebar.write(f"{i+1}. {message} - Sentiment: {sentiment} (Polarity: {polarity})")
+        st.sidebar.write(f"{i + 1}. {message} - Sentiment: {sentiment} (Polarity: {polarity})")
