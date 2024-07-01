@@ -1,6 +1,6 @@
 <template>
   <div class="home-container">
-    <h1>Mental Assistant</h1>
+    <h1>Your Mental Assistant</h1>
     <img src="@/assets/image.png" alt="Mental Assistant Logo" class="logo" />
     <button @click="startChat" class="start-button">Start</button>
   </div>
@@ -53,6 +53,6 @@ h1 {
 }
 
 .start-button:hover {
-  background-color: forestgreen;
+  background-color: #1DB899;
 }
 </style>

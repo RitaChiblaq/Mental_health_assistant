@@ -1,4 +1,3 @@
-<!-- src/views/Chat.vue -->
 <template>
   <div class="chat-container">
     <iframe src="http://localhost:8501" class="chat-iframe"></iframe>

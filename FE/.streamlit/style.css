@@ -1,0 +1,66 @@
+/* style.css */
+body {
+    font-family: 'Inter', sans-serif;
+    margin: 0;
+}
+
+h1 {
+    color: #1DB981;
+}
+
+.stButton>button {
+    background-color: #1DB981;
+    color: white;
+    border-radius: 5px;
+    padding: 10px 20px;
+    cursor: pointer;
+    transition: background-color 0.3s, border-color 0.3s, color 0.3s; /* Transition for background, border, and text color */
+    box-sizing: border-box; /* Ensure padding and border are included in the element's total width and height */
+}
+
+.stButton>button:hover {
+    background-color: grey; /* Set hover background color to grey */
+    border: 2px solid grey; /* Ensure border color remains grey on hover */
+    color: white; /* Ensure text color remains white on hover */
+    outline: none; /* Ensure no outline is applied on hover */
+    /* Remove any scaling or padding changes */
+    padding: 10px 20px;
+    transform: none;
+    box-sizing: border-box; /* Ensure padding and border are included in the element's total width and height */
+}
+
+input[type="text"] {
+    border: 2px solid #1DB981; /* Set border color to green */
+    border-radius: 5px;
+    padding: 10px;
+    outline: none; /* Remove outline */
+    box-sizing: border-box; /* Ensure padding and border are included in the element's total width and height */
+    position: relative;
+}
+
+input[type="text"]:focus {
+    border-color: #1DB981 !important; /* Ensure border color remains green on focus */
+    box-shadow: none; /* Remove any box-shadow (which may appear as an outline) */
+}
+
+/* Style for the submit message */
+input[type="text"]::placeholder {
+    color: #999999; /* Grey color for placeholder text */
+    font-size: 12px;
+    position: absolute;
+    right: 10px;
+    bottom: 5px;
+    transform: translateY(50%);
+}
+
+/* Remove any unwanted lines or borders */
+header, .css-1v3fvcr, .css-1lcbmhc {
+    border: none !important;
+    background-color: #ffffff !important;
+}
+
+/* Specifically target the top line or border */
+.css-1v3fvcr {
+    border-top: none !important;
+    box-shadow: none !important; /* Remove any shadows that may appear as lines */
+}
