@@ -1,4 +1,5 @@
-from sqlalchemy import create_engine, Column, String, Float, ForeignKey, Text, TIMESTAMP
+#models.py
+from sqlalchemy import create_engine, Column, String, Float, ForeignKey, Text, TIMESTAMP, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
@@ -64,3 +65,4 @@ class EmotionalState(Base):
 
 
 ChatSession.emotional_states = relationship('EmotionalState', order_by=EmotionalState.created_at, back_populates='chat_session')
+

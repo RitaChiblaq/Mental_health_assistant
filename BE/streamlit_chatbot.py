@@ -1,17 +1,20 @@
 import sys
 from pathlib import Path
+import os
 import pandas as pd
 import streamlit as st
 import yaml
 from textblob import TextBlob
-from openai import OpenAI
+import openai  # Correct import for OpenAI
 
-config_path = Path('/Users/klaudia/Documents/Mental_health_assistant/config.yaml')
+# Load configuration
+config_path = Path('/Users/ritachiblaq/Library/CloudStorage/OneDrive-Personal/HTW/4.Semester/Unternehmenssoftware/Assignments/Project/config.yaml')
 config = yaml.safe_load(open(config_path))
-client = OpenAI(api_key=config['KEYS']['openai'])
+os.environ["OPENAI_API_KEY"] = config['KEYS']['openai']
+openai.api_key = os.environ["OPENAI_API_KEY"]
 
 # Update this path to the correct one
-sys.path.insert(0, '/Users/klaudia/Documents/Mental_health_assistant/Setup')
+sys.path.insert(0, '/Users/ritachiblaq/Library/CloudStorage/OneDrive-Personal/HTW/4.Semester/Unternehmenssoftware/Assignments/Project/Setup')
 
 
 # Custom CSS
@@ -20,18 +23,20 @@ def local_css(file_name):
         st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
 
 # Ensure the path to the style.css file is correct
-local_css("/Users/klaudia/Documents/Mental_health_assistant/FE/.streamlit/style.css")
+local_css("/Users/ritachiblaq/Library/CloudStorage/OneDrive-Personal/HTW/4.Semester/Unternehmenssoftware/Assignments/Project/FE/.streamlit/style.css")
 
 # Function to generate a response from GPT-3.5-turbo
 def generate_response(prompt):
     try:
-        response = client.chat.completions.create(model="gpt-3.5-turbo",
-        messages=[
-            {"role": "system", "content": "You are a helpful mental health assistant."},
-            {"role": "user", "content": prompt}
-        ])
-        return response.choices[0].message.content.strip()
-    except openai.OpenAIError as e:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "You are a mental health assistant. Your goal is to provide empathetic and supportive responses to help users manage their mental health. Offer coping strategies and encourage positive actions."},
+                {"role": "user", "content": prompt}
+            ]
+        )
+        return response['choices'][0]['message']['content'].strip()
+    except openai.error.OpenAIError as e:  # Catch the correct OpenAI error
         return f"An error occurred: {str(e)}"
     except Exception as e:
         return f"An unexpected error occurred: {str(e)}"
@@ -105,10 +110,6 @@ st.markdown("</div>", unsafe_allow_html=True)
 if st.session_state['mood_tracker']:
     mood_data = pd.DataFrame(st.session_state['mood_tracker'], columns=["Message", "Sentiment", "Polarity"])
     st.line_chart(mood_data['Polarity'])
-
-# Display coping strategies
-if 'user_message' in locals() and user_message:
-    st.write(f"Suggested Coping Strategy: {coping_strategy}")
 
 # Display resources
 st.sidebar.title("Resources")

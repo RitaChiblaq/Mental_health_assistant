@@ -60,3 +60,4 @@ angular.json
 # React Native
 .expo/
 .expo-shared/
+config.yaml
