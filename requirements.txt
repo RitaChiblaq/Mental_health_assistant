@@ -17,3 +17,6 @@ filelock~=3.15.4
 config~=0.5.1
 torch~=2.3.1
 transformers~=4.42.3
+
+redis~=5.0.7
+celery~=5.4.0

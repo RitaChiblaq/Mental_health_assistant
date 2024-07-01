@@ -5,6 +5,7 @@ from BE.utils import generate_embedding
 from models import User, ChatSession, Message, EmotionalState
 from chromadb_client import ChromaDBClient
 from config import engine
+from tasks import fetch_and_analyze_emails  # Import the Celery task
 import logging
 
 # Setting up logging
@@ -87,6 +88,11 @@ def add_emotional_state():
         return jsonify({'error': str(e)}), 500
     finally:
         session.close()
+
+@app.route('/fetch_analyze_emails', methods=['POST'])
+def fetch_analyze_emails():
+    fetch_and_analyze_emails.delay()
+    return jsonify({'status': 'Email analysis started'}), 202
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000)

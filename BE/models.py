@@ -66,3 +66,13 @@ class EmotionalState(Base):
 
 ChatSession.emotional_states = relationship('EmotionalState', order_by=EmotionalState.created_at, back_populates='chat_session')
 
+class EmailAnalysis(Base):
+    __tablename__ = 'email_analysis'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    email_id = Column(String, nullable=False)
+    subject = Column(String, nullable=False)
+    sender = Column(String, nullable=False)
+    recipient = Column(String, nullable=False)
+    body = Column(Text, nullable=False)
+    analysis = Column(Text, nullable=False)
+    created_at = Column(TIMESTAMP, default=datetime.datetime.utcnow)

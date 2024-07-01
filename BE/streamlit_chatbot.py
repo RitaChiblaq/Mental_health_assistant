@@ -5,7 +5,10 @@ import pandas as pd
 import streamlit as st
 import yaml
 from textblob import TextBlob
-import openai  # Correct import for OpenAI
+import openai
+from sqlalchemy.orm import sessionmaker
+from config import engine
+from models import EmailAnalysis
 
 # Load configuration
 config_path = Path('/Users/ritachiblaq/Library/CloudStorage/OneDrive-Personal/HTW/4.Semester/Unternehmenssoftware/Assignments/Project/config.yaml')
@@ -16,6 +19,9 @@ openai.api_key = os.environ["OPENAI_API_KEY"]
 # Update this path to the correct one
 sys.path.insert(0, '/Users/ritachiblaq/Library/CloudStorage/OneDrive-Personal/HTW/4.Semester/Unternehmenssoftware/Assignments/Project/Setup')
 
+# Database session setup
+Session = sessionmaker(bind=engine)
+session = Session()
 
 # Custom CSS
 def local_css(file_name):
@@ -26,17 +32,18 @@ def local_css(file_name):
 local_css("/Users/ritachiblaq/Library/CloudStorage/OneDrive-Personal/HTW/4.Semester/Unternehmenssoftware/Assignments/Project/FE/.streamlit/style.css")
 
 # Function to generate a response from GPT-3.5-turbo
-def generate_response(prompt):
+def generate_response(prompt, user_context=""):
     try:
+        full_prompt = f"{user_context}\n\nUser: {prompt}"
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "You are a mental health assistant. Your goal is to provide empathetic and supportive responses to help users manage their mental health. Offer coping strategies and encourage positive actions."},
-                {"role": "user", "content": prompt}
+                {"role": "user", "content": full_prompt}
             ]
         )
         return response['choices'][0]['message']['content'].strip()
-    except openai.error.OpenAIError as e:  # Catch the correct OpenAI error
+    except openai.error.OpenAIError as e:
         return f"An error occurred: {str(e)}"
     except Exception as e:
         return f"An unexpected error occurred: {str(e)}"
@@ -69,6 +76,16 @@ def provide_coping_strategy(sentiment):
     }
     return strategies.get(sentiment, "Keep going, you're doing great!")
 
+# Fetch user context from email analysis
+def get_user_context():
+    try:
+        latest_analysis = session.query(EmailAnalysis).order_by(EmailAnalysis.created_at.desc()).first()
+        if latest_analysis:
+            return f"Latest email analysis:\n\nSubject: {latest_analysis.subject}\nFrom: {latest_analysis.sender}\nTo: {latest_analysis.recipient}\n\nAnalysis: {latest_analysis.analysis}\n\n"
+        return ""
+    except Exception as e:
+        return f"Error fetching user context: {str(e)}"
+
 
 # Streamlit application
 st.title("Mental Health Support Chatbot")
@@ -89,9 +106,11 @@ def submit():
         sentiment, polarity = analyze_sentiment(user_message)
         coping_strategy = provide_coping_strategy(sentiment)
 
-        response = generate_response(user_message)
+        user_context = get_user_context()
+        response = generate_response(user_message, user_context)
+        full_response = f"{response}\n\nCoping Strategy: {coping_strategy}"
 
-        st.session_state['messages'].append(("Bot", response))
+        st.session_state['messages'].append(("Bot", full_response))
         st.session_state['mood_tracker'].append((user_message, sentiment, polarity))
         st.session_state.input_text = ""  # Clear the input after submission
 
