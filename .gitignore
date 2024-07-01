@@ -61,3 +61,4 @@ angular.json
 .expo/
 .expo-shared/
 config.yaml
+/BE/token.json
