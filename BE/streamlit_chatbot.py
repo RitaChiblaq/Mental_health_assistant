@@ -4,15 +4,15 @@ import pandas as pd
 import streamlit as st
 import yaml
 from textblob import TextBlob
-import openai
+from openai import OpenAI
+
+config_path = Path('/Users/klaudia/Documents/Mental_health_assistant/config.yaml')
+config = yaml.safe_load(open(config_path))
+client = OpenAI(api_key=config['KEYS']['openai'])
 
 # Update this path to the correct one
 sys.path.insert(0, '/Users/klaudia/Documents/Mental_health_assistant/Setup')
 
-# Load configuration
-config_path = Path('/Users/klaudia/Documents/Mental_health_assistant/config.yaml')
-config = yaml.safe_load(open(config_path))
-openai.api_key = config['KEYS']['openai']
 
 # Custom CSS
 def local_css(file_name):
@@ -25,18 +25,17 @@ local_css("/Users/klaudia/Documents/Mental_health_assistant/FE/.streamlit/style.
 # Function to generate a response from GPT-3.5-turbo
 def generate_response(prompt):
     try:
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": prompt}
-            ]
-        )
-        return response.choices[0].message['content'].strip()
+        response = client.chat.completions.create(model="gpt-3.5-turbo",
+        messages=[
+            {"role": "system", "content": "You are a helpful mental health assistant."},
+            {"role": "user", "content": prompt}
+        ])
+        return response.choices[0].message.content.strip()
     except openai.OpenAIError as e:
         return f"An error occurred: {str(e)}"
     except Exception as e:
         return f"An unexpected error occurred: {str(e)}"
+
 
 # Analyze sentiment
 def analyze_sentiment(text):
@@ -53,6 +52,7 @@ def analyze_sentiment(text):
     else:
         return "Very Negative", polarity
 
+
 # Provide coping strategies
 def provide_coping_strategy(sentiment):
     strategies = {
@@ -64,6 +64,7 @@ def provide_coping_strategy(sentiment):
     }
     return strategies.get(sentiment, "Keep going, you're doing great!")
 
+
 # Streamlit application
 st.title("Mental Health Support Chatbot")
 
@@ -72,11 +73,8 @@ if 'messages' not in st.session_state:
 if 'mood_tracker' not in st.session_state:
     st.session_state['mood_tracker'] = []
 
-with st.form(key='chat_form'):
-    user_message = st.text_input("You:").strip()
-    submit_button = st.form_submit_button(label='Send') and user_message
-
-if submit_button:
+def submit():
+    user_message = st.session_state.input_text.strip()
     word_count = len(user_message.split())
     if word_count < 5:
         st.warning("Please enter at least 5 words.")
@@ -90,12 +88,18 @@ if submit_button:
 
         st.session_state['messages'].append(("Bot", response))
         st.session_state['mood_tracker'].append((user_message, sentiment, polarity))
+        st.session_state.input_text = ""  # Clear the input after submission
 
+st.text_input("You:", key="input_text", on_change=submit, label_visibility="collapsed")
+
+# Display messages
+st.markdown("<div class='chat-container'>", unsafe_allow_html=True)
 for sender, message in st.session_state['messages']:
     if sender == "You":
-        st.text(f"You: {message}")
+        st.markdown(f"<div class='user-message'>{message}</div>", unsafe_allow_html=True)
     else:
-        st.text(f"Bot: {message}")
+        st.markdown(f"<div class='bot-message'>{message}</div>", unsafe_allow_html=True)
+st.markdown("</div>", unsafe_allow_html=True)
 
 # Display mood tracking chart
 if st.session_state['mood_tracker']:

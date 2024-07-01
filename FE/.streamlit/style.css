@@ -64,3 +64,36 @@ header, .css-1v3fvcr, .css-1lcbmhc {
     border-top: none !important;
     box-shadow: none !important; /* Remove any shadows that may appear as lines */
 }
+
+
+.user-message, .bot-message {
+    padding: 10px;
+    border-radius: 10px;
+    max-width: 100%;
+    width: fit-content;
+    word-wrap: break-word;
+}
+
+.user-message {
+    align-self: flex-end;
+    background-color: #1DB981;
+    color: white;
+    text-align: left;
+}
+
+.bot-message {
+    align-self: flex-start;
+    background-color: #e0e0e0;
+    color: black;
+    text-align: left;
+}
+
+.stTextInput {
+    width: 100%;
+    background-color: white;
+    padding: 10px;
+    border: none;
+    border-radius: 5px;
+    box-shadow: none;
+    margin-bottom: 10px; /* Add margin to ensure spacing between input and messages */
+}
