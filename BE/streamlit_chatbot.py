@@ -181,12 +181,12 @@ else:
         st.session_state['token'] = None
         st.experimental_rerun()
 
-st.sidebar.title("Resources")
 st.sidebar.write("If you need immediate help, please contact one of the following resources:")
-st.sidebar.write("1. National Suicide Prevention Lifeline: 1-800-273-8255")
-st.sidebar.write("2. Crisis Text Line: Text 'HELLO' to 741741")
-st.sidebar.write("3. SAMHSA’s National Helpline: 1-800-662-HELP (4357)")
-st.sidebar.write("[More Resources](https://www.mentalhealth.gov/get-help/immediate-help)")
+st.sidebar.write("1. Telefonseelsorge: 0800 111 0 111 or 0800 111 0 222 (available 24/7)")
+st.sidebar.write("2. Berliner Krisendienst: 030 39063 00 (available 24/7 in Berlin)")
+st.sidebar.write("3. Telefonberatung für Kinder und Jugendliche (Nummer gegen Kummer): 116 111 (available Monday to Saturday from 14:00 to 20:00)")
+st.sidebar.write("4. Deutsche Depressionshilfe: 0800 33 44 533 (hotline for depression, available Monday to Thursday from 13:00 to 17:00)")
+st.sidebar.write("[More Resources](https://www.deutsche-depressionshilfe.de/depression-infos-und-hilfe/wo-finde-ich-hilfe/krisendienste-und-beratungsstellen)")
 
 st.sidebar.title("How to Interact with the Chatbot")
 st.sidebar.write("""
