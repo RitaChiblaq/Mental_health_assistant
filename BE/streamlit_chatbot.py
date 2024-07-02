@@ -9,12 +9,18 @@ import openai
 from sqlalchemy.orm import sessionmaker
 from config import engine
 from models import EmailAnalysis
+from authlib.integrations.requests_client import OAuth2Session
+from requests import get
+import json
 
 # Load configuration
 config_path = Path('/Users/ritachiblaq/Library/CloudStorage/OneDrive-Personal/HTW/4.Semester/Unternehmenssoftware/Assignments/Project/config.yaml')
 config = yaml.safe_load(open(config_path))
 os.environ["OPENAI_API_KEY"] = config['KEYS']['openai']
 openai.api_key = os.environ["OPENAI_API_KEY"]
+google_client_id = config['KEYS']['google_client_id']
+google_client_secret = config['KEYS']['google_client_secret']
+redirect_uri = 'http://localhost:8501'  # Update with your Streamlit app URL
 
 # Update this path to the correct one
 sys.path.insert(0, '/Users/ritachiblaq/Library/CloudStorage/OneDrive-Personal/HTW/4.Semester/Unternehmenssoftware/Assignments/Project/Setup')
@@ -30,6 +36,17 @@ def local_css(file_name):
 
 # Ensure the path to the style.css file is correct
 local_css("/Users/ritachiblaq/Library/CloudStorage/OneDrive-Personal/HTW/4.Semester/Unternehmenssoftware/Assignments/Project/FE/.streamlit/style.css")
+
+# Initialize OAuth2 session
+def get_google_oauth_session(state=None, token=None):
+    return OAuth2Session(
+        client_id=google_client_id,
+        client_secret=google_client_secret,
+        redirect_uri=redirect_uri,
+        scope='openid email profile',
+        state=state,
+        token=token
+    )
 
 # Function to generate a response from GPT-3.5-turbo
 def generate_response(prompt, user_context=""):
@@ -90,6 +107,13 @@ def get_user_context():
 # Streamlit application
 st.title("Mental Health Support Chatbot")
 
+if 'token' not in st.session_state:
+    st.session_state['token'] = None
+
+if 'oauth_state' not in st.session_state:
+    st.session_state['oauth_state'] = None
+
+# Chatbot interface
 if 'messages' not in st.session_state:
     st.session_state['messages'] = []
 if 'mood_tracker' not in st.session_state:
@@ -116,7 +140,6 @@ def submit():
 
 st.text_input("You:", key="input_text", on_change=submit, label_visibility="collapsed")
 
-# Display messages
 st.markdown("<div class='chat-container'>", unsafe_allow_html=True)
 for sender, message in st.session_state['messages']:
     if sender == "You":
@@ -125,12 +148,39 @@ for sender, message in st.session_state['messages']:
         st.markdown(f"<div class='bot-message'>{message}</div>", unsafe_allow_html=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
-# Display mood tracking chart
 if st.session_state['mood_tracker']:
     mood_data = pd.DataFrame(st.session_state['mood_tracker'], columns=["Message", "Sentiment", "Polarity"])
     st.line_chart(mood_data['Polarity'])
 
-# Display resources
+# Authentication section
+if st.session_state['token'] is None:
+    if st.button('Login with Gmail'):
+        oauth = get_google_oauth_session()
+        authorization_url, state = oauth.create_authorization_url('https://accounts.google.com/o/oauth2/auth')
+        st.session_state['oauth_state'] = state
+        st.write(f"[Click here to authorize]({authorization_url})")
+
+    query_params = st.experimental_get_query_params()
+    if 'code' in query_params:
+        oauth = get_google_oauth_session(state=st.session_state['oauth_state'])
+        try:
+            token = oauth.fetch_token(
+                'https://accounts.google.com/o/oauth2/token',
+                authorization_response=f'{redirect_uri}?code={query_params["code"][0]}',
+                grant_type='authorization_code'  # Ensure the correct grant type is used
+            )
+            st.session_state['token'] = token
+            st.experimental_rerun()  # Rerun the app to update the UI
+        except Exception as e:
+            st.error(f"OAuth error: {e}")
+else:
+    oauth = get_google_oauth_session(token=st.session_state['token'])
+    user_info = oauth.get('https://www.googleapis.com/oauth2/v1/userinfo').json()
+
+    if st.button('Logout'):
+        st.session_state['token'] = None
+        st.experimental_rerun()
+
 st.sidebar.title("Resources")
 st.sidebar.write("If you need immediate help, please contact one of the following resources:")
 st.sidebar.write("1. National Suicide Prevention Lifeline: 1-800-273-8255")
@@ -138,7 +188,6 @@ st.sidebar.write("2. Crisis Text Line: Text 'HELLO' to 741741")
 st.sidebar.write("3. SAMHSA’s National Helpline: 1-800-662-HELP (4357)")
 st.sidebar.write("[More Resources](https://www.mentalhealth.gov/get-help/immediate-help)")
 
-# Add guidelines for interacting with the chatbot
 st.sidebar.title("How to Interact with the Chatbot")
 st.sidebar.write("""
 - Please enter at least 5 words.
@@ -147,7 +196,6 @@ st.sidebar.write("""
 - Example: "I am feeling very anxious about my upcoming exams."
 """)
 
-# Display session summary
 if st.sidebar.button("Show Session Summary"):
     st.sidebar.write("### Session Summary")
     for i, (message, sentiment, polarity) in enumerate(st.session_state['mood_tracker']):
