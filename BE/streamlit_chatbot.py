@@ -10,8 +10,8 @@ from sqlalchemy.orm import sessionmaker
 from config import engine
 from models import EmailAnalysis
 from authlib.integrations.requests_client import OAuth2Session
-from requests import get
-import json
+from models import EmailAnalysis, CopingStrategy, ChatSession, EmotionalState, Message, User
+
 
 # Load configuration
 config_path = Path('/Users/ritachiblaq/Library/CloudStorage/OneDrive-Personal/HTW/4.Semester/Unternehmenssoftware/Assignments/Project/config.yaml')
@@ -66,32 +66,100 @@ def generate_response(prompt, user_context=""):
         return f"An unexpected error occurred: {str(e)}"
 
 
-# Analyze sentiment
-def analyze_sentiment(text):
+# Enhanced Emotional State Analysis
+def analyze_emotional_state(text):
     analysis = TextBlob(text)
     polarity = analysis.sentiment.polarity
+    subjectivity = analysis.sentiment.subjectivity
+
     if polarity > 0.5:
-        return "Very Positive", polarity
+        return "Very Positive", polarity, subjectivity
     elif 0.1 < polarity <= 0.5:
-        return "Positive", polarity
+        return "Positive", polarity, subjectivity
     elif -0.1 <= polarity <= 0.1:
-        return "Neutral", polarity
+        return "Neutral", polarity, subjectivity
     elif -0.5 < polarity < -0.1:
-        return "Negative", polarity
+        return "Negative", polarity, subjectivity
     else:
-        return "Very Negative", polarity
+        return "Very Negative", polarity, subjectivity
 
 
-# Provide coping strategies
-def provide_coping_strategy(sentiment):
-    strategies = {
-        "Very Positive": "Keep up the positive vibes! Consider sharing your good mood with others.",
-        "Positive": "It's great to see you're feeling positive. Keep doing what you're doing!",
-        "Neutral": "Feeling neutral is okay. Consider engaging in activities you enjoy.",
-        "Negative": "It seems you're feeling down. Try to take a break and do something relaxing.",
-        "Very Negative": "I'm sorry to hear that you're feeling very negative. Consider talking to a friend or seeking professional help."
-    }
-    return strategies.get(sentiment, "Keep going, you're doing great!")
+# Provide detailed personalized recommendations
+def provide_personalized_recommendations(sentiment, subjectivity):
+    if sentiment == "Very Positive":
+        strategy = """
+            It's great to see you're feeling very positive. Here are some ways to maintain and leverage your positive mindset:
+            - **Share Your Positivity:** Spread your positive energy by engaging in conversations or activities with others. Positivity is contagious!
+            - **Set New Goals:** Use your positive outlook to set new personal or professional goals. A positive mindset can enhance your motivation and productivity.
+            - **Reflect and Appreciate:** Take some time to reflect on the things that are going well and express gratitude. This practice can reinforce your positive feelings.
+        """
+    elif sentiment == "Positive":
+        strategy = """
+            It's good to see you're feeling positive. Here are a few suggestions to keep up the positive momentum:
+            - **Engage in Enjoyable Activities:** Continue doing activities that bring you joy and satisfaction. It could be hobbies, sports, or spending time with loved ones.
+            - **Practice Gratitude:** Regularly acknowledge and appreciate the good things in your life. Consider keeping a gratitude journal.
+            - **Stay Connected:** Maintain social connections with friends and family. Positive interactions can help sustain your positive feelings.
+        """
+    elif sentiment == "Neutral":
+        strategy = """
+            Feeling neutral is completely okay. Here are some strategies to enhance your well-being:
+            - **Explore New Interests:** Try picking up a new hobby or interest. It can add excitement and break the monotony.
+            - **Mindfulness Practices:** Engage in mindfulness or meditation to center yourself and improve your emotional awareness.
+            - **Physical Activity:** Incorporate regular physical activity into your routine. Exercise can boost your mood and energy levels.
+        """
+    elif sentiment == "Negative":
+        strategy = """
+            It seems you're feeling a bit down. Here are some steps you can take to improve your mood:
+            - **Reach Out for Support:** Talk to a trusted friend or family member about how you're feeling. Sharing your thoughts can provide relief.
+            - **Engage in Relaxing Activities:** Consider activities like reading, listening to music, or taking a walk to help you relax and unwind.
+            - **Professional Help:** If your negative feelings persist, consider reaching out to a mental health professional for guidance and support.
+        """
+    else:  # Very Negative
+        strategy = """
+            I'm sorry to hear that you're feeling very negative. Here are some urgent steps to take care of your mental health:
+            - **Seek Immediate Support:** If you're feeling overwhelmed, reach out to a crisis hotline or mental health professional immediately.
+            - **Connect with Loved Ones:** Talk to friends or family members who can offer support and understanding.
+            - **Self-Care:** Engage in activities that promote relaxation and self-care, such as deep breathing exercises, meditation, or a warm bath.
+            - **Professional Help:** Consider scheduling an appointment with a therapist or counselor to explore your feelings and get professional advice.
+        """
+    return strategy
+
+
+# Save coping strategy to the database
+def save_coping_strategy(strategy):
+    new_strategy = CopingStrategy(strategy=strategy)
+    session.add(new_strategy)
+    session.commit()
+
+
+# Save user message and sentiment to the database
+def save_user_message(session_id, sender, message_text, sentiment, polarity):
+    new_message = Message(
+        session_id=session_id,
+        sender=sender,
+        message_text=message_text
+    )
+    session.add(new_message)
+    session.commit()
+
+    new_emotion = EmotionalState(
+        session_id=session_id,
+        detected_emotion=sentiment,
+        confidence_score=polarity
+    )
+    session.add(new_emotion)
+    session.commit()
+
+
+# Ensure default user exists
+def ensure_default_user():
+    user = session.query(User).filter_by(email='default_user@example.com').first()
+    if not user:
+        user = User(username='default_user', email='default_user@example.com', password_hash='default_hash')
+        session.add(user)
+        session.commit()
+    return user.user_id
+
 
 # Fetch user context from email analysis
 def get_user_context():
@@ -102,6 +170,11 @@ def get_user_context():
         return ""
     except Exception as e:
         return f"Error fetching user context: {str(e)}"
+
+
+# Display notification
+def show_notification(message):
+    st.toast(message)
 
 
 # Streamlit application
@@ -118,6 +191,14 @@ if 'messages' not in st.session_state:
     st.session_state['messages'] = []
 if 'mood_tracker' not in st.session_state:
     st.session_state['mood_tracker'] = []
+if 'coping_strategies' not in st.session_state:
+    st.session_state['coping_strategies'] = []
+if 'session_id' not in st.session_state:
+    default_user_id = ensure_default_user()
+    new_session = ChatSession(user_id=default_user_id)
+    session.add(new_session)
+    session.commit()
+    st.session_state['session_id'] = new_session.session_id
 
 def submit():
     user_message = st.session_state.input_text.strip()
@@ -127,16 +208,22 @@ def submit():
     else:
         st.session_state['messages'].append(("You", user_message))
 
-        sentiment, polarity = analyze_sentiment(user_message)
-        coping_strategy = provide_coping_strategy(sentiment)
+        sentiment, polarity, subjectivity = analyze_emotional_state(user_message)
+        coping_strategy = provide_personalized_recommendations(sentiment, subjectivity)
+        save_coping_strategy(coping_strategy)  # Save the coping strategy to the database
+        save_user_message(st.session_state['session_id'], "You", user_message, sentiment, polarity)  # Save the user message to the database
+        st.session_state['coping_strategies'].append(coping_strategy)
 
         user_context = get_user_context()
         response = generate_response(user_message, user_context)
-        full_response = f"{response}\n\nCoping Strategy: {coping_strategy}"
 
-        st.session_state['messages'].append(("Bot", full_response))
+        st.session_state['messages'].append(("Bot", response))
         st.session_state['mood_tracker'].append((user_message, sentiment, polarity))
         st.session_state.input_text = ""  # Clear the input after submission
+
+        # Display notification about the user's emotional state
+        notification_message = f"Your current emotional state is {sentiment}. We have provided a personalized coping strategy."
+        show_notification(notification_message)
 
 st.text_input("You:", key="input_text", on_change=submit, label_visibility="collapsed")
 
@@ -150,6 +237,10 @@ st.markdown("</div>", unsafe_allow_html=True)
 
 if st.session_state['mood_tracker']:
     mood_data = pd.DataFrame(st.session_state['mood_tracker'], columns=["Message", "Sentiment", "Polarity"])
+    st.markdown("<br>", unsafe_allow_html=True)  # Add space between Coping Strategy and Mental Analysis
+    st.markdown("### Latest Coping Strategy")
+    st.markdown(f"{st.session_state['coping_strategies'][-1]}", unsafe_allow_html=True)  # Display the latest coping strategy
+    st.markdown("### Mental Analysis")
     st.line_chart(mood_data['Polarity'])
 
 # Authentication section
@@ -195,6 +286,16 @@ st.sidebar.write("""
 - Be as specific as possible about your current situation or problems.
 - Example: "I am feeling very anxious about my upcoming exams."
 """)
+
+# Knowledge Base Section
+st.sidebar.title("Knowledge Base")
+st.sidebar.write("Here are some useful resources for mental health information in German:")
+st.sidebar.write("[Bundeszentrale für gesundheitliche Aufklärung (BZgA)](https://www.bzga.de/)")
+st.sidebar.write("Offers a wide range of information on mental health, prevention, and support services.")
+st.sidebar.write("[psychenet](https://www.psychenet.de/)")
+st.sidebar.write("A mental health information network providing insights, self-tests, and support for various mental health issues.")
+st.sidebar.write("[Mindzone](https://mindzone.info/)")
+st.sidebar.write("A project aimed at promoting mental health and providing support for young people.")
 
 if st.sidebar.button("Show Session Summary"):
     st.sidebar.write("### Session Summary")

@@ -1,4 +1,3 @@
-#chromadb_client.py
 import requests
 
 

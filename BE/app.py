@@ -1,10 +1,9 @@
 from flask import Flask, request, jsonify
 from sqlalchemy.orm import scoped_session, sessionmaker
-
 from BE.utils import generate_embedding
 from models import User, ChatSession, Message, EmotionalState
 from chromadb_client import ChromaDBClient
-from config import engine
+from BE.config import engine
 from tasks import fetch_and_analyze_emails  # Import the Celery task
 import logging
 
