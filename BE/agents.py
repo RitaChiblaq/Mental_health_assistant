@@ -11,7 +11,6 @@ from email import policy
 from email.parser import BytesParser
 import openai
 
-
 # Load configuration
 config_path = "/Users/ritachiblaq/Library/CloudStorage/OneDrive-Personal/HTW/4.Semester/Unternehmenssoftware/Assignments/project/config.yaml"
 oauth_client_secret_file = "/Users/ritachiblaq/Downloads/client_secret_868701777334-iftiplo2g719831dt8f6ah0kdi4cl2db.apps.googleusercontent.com.json"

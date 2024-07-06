@@ -1,6 +1,6 @@
-import sys
 from pathlib import Path
 import os
+import sys
 import pandas as pd
 import streamlit as st
 import yaml
@@ -8,10 +8,13 @@ from textblob import TextBlob
 import openai
 from sqlalchemy.orm import sessionmaker
 from config import engine
-from models import EmailAnalysis
-from authlib.integrations.requests_client import OAuth2Session
 from models import EmailAnalysis, CopingStrategy, ChatSession, EmotionalState, Message, User
-
+from authlib.integrations.requests_client import OAuth2Session
+import datetime
+import uuid
+from sqlalchemy import create_engine, Column, String, Float, ForeignKey, Text, TIMESTAMP, Integer, DateTime, func
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship
 
 # Load configuration
 config_path = Path('/Users/ritachiblaq/Library/CloudStorage/OneDrive-Personal/HTW/4.Semester/Unternehmenssoftware/Assignments/Project/config.yaml')
@@ -65,7 +68,6 @@ def generate_response(prompt, user_context=""):
     except Exception as e:
         return f"An unexpected error occurred: {str(e)}"
 
-
 # Enhanced Emotional State Analysis
 def analyze_emotional_state(text):
     analysis = TextBlob(text)
@@ -82,7 +84,6 @@ def analyze_emotional_state(text):
         return "Negative", polarity, subjectivity
     else:
         return "Very Negative", polarity, subjectivity
-
 
 # Provide detailed personalized recommendations
 def provide_personalized_recommendations(sentiment, subjectivity):
@@ -124,16 +125,14 @@ def provide_personalized_recommendations(sentiment, subjectivity):
         """
     return strategy
 
-
 # Save coping strategy to the database
 def save_coping_strategy(strategy):
     new_strategy = CopingStrategy(strategy=strategy)
     session.add(new_strategy)
     session.commit()
 
-
 # Save user message and sentiment to the database
-def save_user_message(session_id, sender, message_text, sentiment, polarity):
+def save_user_message(session_id, sender, message_text, sentiment=None, polarity=None):
     new_message = Message(
         session_id=session_id,
         sender=sender,
@@ -142,14 +141,14 @@ def save_user_message(session_id, sender, message_text, sentiment, polarity):
     session.add(new_message)
     session.commit()
 
-    new_emotion = EmotionalState(
-        session_id=session_id,
-        detected_emotion=sentiment,
-        confidence_score=polarity
-    )
-    session.add(new_emotion)
-    session.commit()
-
+    if sender == "You" and sentiment and polarity:
+        new_emotion = EmotionalState(
+            session_id=session_id,
+            detected_emotion=sentiment,
+            confidence_score=polarity
+        )
+        session.add(new_emotion)
+        session.commit()
 
 # Ensure default user exists
 def ensure_default_user():
@@ -159,7 +158,6 @@ def ensure_default_user():
         session.add(user)
         session.commit()
     return user.user_id
-
 
 # Fetch user context from email analysis
 def get_user_context():
@@ -171,11 +169,33 @@ def get_user_context():
     except Exception as e:
         return f"Error fetching user context: {str(e)}"
 
-
 # Display notification
 def show_notification(message):
     st.toast(message)
 
+# Ensure user is stored in the database
+def store_user_if_not_exists(user_info):
+    existing_user = session.query(User).filter_by(email=user_info['email']).first()
+    if not existing_user:
+        new_user = User(
+            username=user_info['name'],
+            email=user_info['email'],
+            password_hash=str(uuid.uuid4())  # Using a random UUID as password hash for simplicity
+        )
+        session.add(new_user)
+        session.commit()
+        return new_user.user_id
+    return existing_user.user_id
+
+# Retrieve chat history for the user
+def get_chat_history(user_id):
+    chat_sessions = session.query(ChatSession).filter_by(user_id=user_id).order_by(ChatSession.started_at.desc()).all()
+    chat_history = []
+    for chat_session in chat_sessions:
+        messages = session.query(Message).filter_by(session_id=chat_session.session_id).order_by(Message.created_at).all()
+        for message in messages:
+            chat_history.append((message.sender, message.message_text, message.created_at))
+    return chat_history
 
 # Streamlit application
 st.title("Mental Health Support Chatbot")
@@ -194,11 +214,9 @@ if 'mood_tracker' not in st.session_state:
 if 'coping_strategies' not in st.session_state:
     st.session_state['coping_strategies'] = []
 if 'session_id' not in st.session_state:
-    default_user_id = ensure_default_user()
-    new_session = ChatSession(user_id=default_user_id)
-    session.add(new_session)
-    session.commit()
-    st.session_state['session_id'] = new_session.session_id
+    st.session_state['session_id'] = None
+if 'user_id' not in st.session_state:
+    st.session_state['user_id'] = None
 
 def submit():
     user_message = st.session_state.input_text.strip()
@@ -206,42 +224,42 @@ def submit():
     if word_count < 5:
         st.warning("Please enter at least 5 words.")
     else:
-        st.session_state['messages'].append(("You", user_message))
+        st.session_state['messages'].insert(0, ("You", user_message))
 
         sentiment, polarity, subjectivity = analyze_emotional_state(user_message)
         coping_strategy = provide_personalized_recommendations(sentiment, subjectivity)
-        save_coping_strategy(coping_strategy)  # Save the coping strategy to the database
-        save_user_message(st.session_state['session_id'], "You", user_message, sentiment, polarity)  # Save the user message to the database
-        st.session_state['coping_strategies'].append(coping_strategy)
+        st.session_state['coping_strategies'].insert(0, coping_strategy)
+
+        if st.session_state['token']:  # Only save if user is logged in
+            save_coping_strategy(coping_strategy)  # Save the coping strategy to the database
+            save_user_message(st.session_state['session_id'], "You", user_message, sentiment, polarity)  # Save the user message to the database
 
         user_context = get_user_context()
         response = generate_response(user_message, user_context)
 
-        st.session_state['messages'].append(("Bot", response))
-        st.session_state['mood_tracker'].append((user_message, sentiment, polarity))
+        st.session_state['messages'].insert(0, ("Bot", response))
+        if st.session_state['token']:  # Only save if user is logged in
+            save_user_message(st.session_state['session_id'], "Bot", response)  # Save the bot response to the database
+
+        st.session_state['mood_tracker'].insert(0, (user_message, sentiment, polarity))
         st.session_state.input_text = ""  # Clear the input after submission
 
         # Display notification about the user's emotional state
         notification_message = f"Your current emotional state is {sentiment}. We have provided a personalized coping strategy."
         show_notification(notification_message)
 
+def display_messages(messages):
+    st.markdown("<div class='chat-container'>", unsafe_allow_html=True)
+    for sender, message in messages:
+        if sender == "You":
+            st.markdown(f"<div class='user-message'>{message}</div>", unsafe_allow_html=True)
+        else:
+            st.markdown(f"<div class='bot-message'>{message}</div>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
 st.text_input("You:", key="input_text", on_change=submit, label_visibility="collapsed")
 
-st.markdown("<div class='chat-container'>", unsafe_allow_html=True)
-for sender, message in st.session_state['messages']:
-    if sender == "You":
-        st.markdown(f"<div class='user-message'>{message}</div>", unsafe_allow_html=True)
-    else:
-        st.markdown(f"<div class='bot-message'>{message}</div>", unsafe_allow_html=True)
-st.markdown("</div>", unsafe_allow_html=True)
-
-if st.session_state['mood_tracker']:
-    mood_data = pd.DataFrame(st.session_state['mood_tracker'], columns=["Message", "Sentiment", "Polarity"])
-    st.markdown("<br>", unsafe_allow_html=True)  # Add space between Coping Strategy and Mental Analysis
-    st.markdown("### Latest Coping Strategy")
-    st.markdown(f"{st.session_state['coping_strategies'][-1]}", unsafe_allow_html=True)  # Display the latest coping strategy
-    st.markdown("### Mental Analysis")
-    st.line_chart(mood_data['Polarity'])
+display_messages(st.session_state['messages'])
 
 # Authentication section
 if st.session_state['token'] is None:
@@ -268,9 +286,39 @@ else:
     oauth = get_google_oauth_session(token=st.session_state['token'])
     user_info = oauth.get('https://www.googleapis.com/oauth2/v1/userinfo').json()
 
+    # Store user in the database if not exists
+    user_id = store_user_if_not_exists(user_info)
+    st.session_state['user_id'] = user_id
+
+    # Retrieve and display chat history
+    if st.session_state['session_id'] is None:
+        new_session = ChatSession(user_id=user_id)
+        session.add(new_session)
+        session.commit()
+        st.session_state['session_id'] = new_session.session_id
+
+        chat_history = get_chat_history(user_id)
+        # Sort messages with the newest ones at the top
+        chat_history.sort(key=lambda x: x[2], reverse=True)
+        st.session_state['messages'] = [(msg[0], msg[1]) for msg in chat_history]
+
+    display_messages(st.session_state['messages'])
+
     if st.button('Logout'):
         st.session_state['token'] = None
+        st.session_state['session_id'] = None
+        st.session_state['messages'] = []
+        st.session_state['mood_tracker'] = []
+        st.session_state['coping_strategies'] = []
         st.experimental_rerun()
+
+if st.session_state['mood_tracker']:
+    mood_data = pd.DataFrame(st.session_state['mood_tracker'], columns=["Message", "Sentiment", "Polarity"])
+    st.markdown("<br>", unsafe_allow_html=True)  # Add space between Coping Strategy and Mental Analysis
+    st.markdown("### Latest Coping Strategy")
+    st.markdown(f"{st.session_state['coping_strategies'][0]}", unsafe_allow_html=True)  # Display the latest coping strategy
+    st.markdown("### Mental Analysis")
+    st.line_chart(mood_data['Polarity'])
 
 st.sidebar.write("If you need immediate help, please contact one of the following resources:")
 st.sidebar.write("1. Telefonseelsorge: 0800 111 0 111 or 0800 111 0 222 (available 24/7)")
