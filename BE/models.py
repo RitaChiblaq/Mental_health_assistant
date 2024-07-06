@@ -1,4 +1,5 @@
-from sqlalchemy import create_engine, Column, String, Float, ForeignKey, Text, TIMESTAMP, Integer, DateTime, func
+from sqlalchemy import create_engine, Column, String, Float, ForeignKey, Text, TIMESTAMP, Integer, DateTime, func, \
+    Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 import uuid
@@ -68,13 +69,15 @@ ChatSession.emotional_states = relationship('EmotionalState', order_by=Emotional
 class EmailAnalysis(Base):
     __tablename__ = 'email_analysis'
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    email_id = Column(String(100), nullable=False)  # Specify length for String
-    subject = Column(String(255), nullable=False)  # Specify length for String
-    sender = Column(String(100), nullable=False)  # Specify length for String
-    recipient = Column(String(100), nullable=False)  # Specify length for String
+    email_id = Column(String(100), nullable=False)
+    subject = Column(String(255), nullable=False)
+    sender = Column(String(100), nullable=False)
+    recipient = Column(String(100), nullable=False)
     body = Column(Text, nullable=False)
     analysis = Column(Text, nullable=False)
+    is_analyzed = Column(Boolean, default=False)  # New column to track analysis status
     created_at = Column(TIMESTAMP, default=datetime.datetime.utcnow)
+
 
 class CopingStrategy(Base):
     __tablename__ = 'coping_strategy'

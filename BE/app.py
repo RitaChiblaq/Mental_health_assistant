@@ -6,6 +6,7 @@ from chromadb_client import ChromaDBClient
 from BE.config import engine
 from tasks import fetch_and_analyze_emails  # Import the Celery task
 import logging
+import subprocess
 
 # Setting up logging
 logging.basicConfig(level=logging.INFO)
@@ -93,5 +94,24 @@ def fetch_analyze_emails():
     fetch_and_analyze_emails.delay()
     return jsonify({'status': 'Email analysis started'}), 202
 
+@app.route('/login', methods=['POST'])
+def login():
+    session = Session()
+    try:
+        data = request.json
+        user = session.query(User).filter_by(email=data['email']).first()
+        if user and user.verify_password(data['password']):
+            # Start Celery Worker and Beat
+            subprocess.Popen(['celery', '-A', 'tasks', 'worker', '--loglevel=info'])
+            subprocess.Popen(['celery', '-A', 'tasks', 'beat', '--loglevel=info'])
+            return jsonify({'message': 'Login successful', 'user_id': str(user.user_id)})
+        else:
+            return jsonify({'error': 'Invalid credentials'}), 401
+    except Exception as e:
+        logger.error(f"Error during login: {e}")
+        return jsonify({'error': str(e)}), 500
+    finally:
+        session.close()
+
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=5001)  # Ensure this is the correct port

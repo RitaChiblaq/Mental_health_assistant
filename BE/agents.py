@@ -6,7 +6,7 @@ import yaml
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
-from googleapiclient.discovery import build
+from googleapiclient.discovery import build, logger
 from email import policy
 from email.parser import BytesParser
 import openai
@@ -45,9 +45,13 @@ if not creds or not creds.valid:
 service = build('gmail', 'v1', credentials=creds)
 
 
-def get_emails(user_id='me', query='in:sent', max_results=10):
+def get_emails(last_email_id=None, user_id='me', query='in:sent', max_results=10):
     try:
-        results = service.users().messages().list(userId=user_id, q=query, maxResults=max_results).execute()
+        query_string = query
+        if last_email_id:
+            query_string += f' AND after:{last_email_id}'
+
+        results = service.users().messages().list(userId=user_id, q=query_string, maxResults=max_results).execute()
         messages = results.get('messages', [])
         email_data = []
 
@@ -56,6 +60,7 @@ def get_emails(user_id='me', query='in:sent', max_results=10):
             msg_str = base64.urlsafe_b64decode(msg['raw'].encode('ASCII'))
             mime_msg = BytesParser(policy=policy.default).parsebytes(msg_str)
             email_data.append({
+                'id': message['id'],
                 'subject': mime_msg['subject'],
                 'from': mime_msg['from'],
                 'to': mime_msg['to'],
@@ -64,9 +69,8 @@ def get_emails(user_id='me', query='in:sent', max_results=10):
 
         return email_data
     except Exception as e:
-        print(f"Error fetching emails: {e}")
+        logger.error(f"Error fetching emails: {e}")
         return []
-
 
 def get_email_body(mime_msg):
     if mime_msg.is_multipart():

@@ -1,6 +1,5 @@
 from pathlib import Path
 import os
-import sys
 import pandas as pd
 import streamlit as st
 import yaml
@@ -10,11 +9,9 @@ from sqlalchemy.orm import sessionmaker
 from config import engine
 from models import EmailAnalysis, CopingStrategy, ChatSession, EmotionalState, Message, User
 from authlib.integrations.requests_client import OAuth2Session
+import requests
 import datetime
 import uuid
-from sqlalchemy import create_engine, Column, String, Float, ForeignKey, Text, TIMESTAMP, Integer, DateTime, func
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship
 
 # Load configuration
 config_path = Path('/Users/ritachiblaq/Library/CloudStorage/OneDrive-Personal/HTW/4.Semester/Unternehmenssoftware/Assignments/Project/config.yaml')
@@ -23,10 +20,7 @@ os.environ["OPENAI_API_KEY"] = config['KEYS']['openai']
 openai.api_key = os.environ["OPENAI_API_KEY"]
 google_client_id = config['KEYS']['google_client_id']
 google_client_secret = config['KEYS']['google_client_secret']
-redirect_uri = 'http://localhost:8501'  # Update with your Streamlit app URL
-
-# Update this path to the correct one
-sys.path.insert(0, '/Users/ritachiblaq/Library/CloudStorage/OneDrive-Personal/HTW/4.Semester/Unternehmenssoftware/Assignments/Project/Setup')
+redirect_uri = 'http://localhost:8501'
 
 # Database session setup
 Session = sessionmaker(bind=engine)
@@ -197,6 +191,17 @@ def get_chat_history(user_id):
             chat_history.append((message.sender, message.message_text, message.created_at))
     return chat_history
 
+# Trigger email analysis task
+def trigger_email_analysis():
+    try:
+        response = requests.post("http://localhost:5001/fetch_analyze_emails")
+        if response.status_code == 202:
+            st.success("Email analysis started.")
+        else:
+            st.error(f"Failed to start email analysis: {response.text}")
+    except Exception as e:
+        st.error(f"Failed to start email analysis: {e}")
+
 # Streamlit application
 st.title("Mental Health Support Chatbot")
 
@@ -220,35 +225,39 @@ if 'user_id' not in st.session_state:
 
 def submit():
     user_message = st.session_state.input_text.strip()
-    word_count = len(user_message.split())
-    if word_count < 5:
+    if not user_message:
+        st.warning("Please enter a message.")
+        return
+
+    if 'input_text' in st.session_state and len(st.session_state.input_text.split()) < 5:
         st.warning("Please enter at least 5 words.")
-    else:
-        st.session_state['messages'].insert(0, ("You", user_message))
+        return
 
-        sentiment, polarity, subjectivity = analyze_emotional_state(user_message)
-        coping_strategy = provide_personalized_recommendations(sentiment, subjectivity)
-        st.session_state['coping_strategies'].insert(0, coping_strategy)
+    st.session_state['messages'].insert(0, ("You", user_message))
 
-        if st.session_state['token']:  # Only save if user is logged in
-            save_coping_strategy(coping_strategy)  # Save the coping strategy to the database
-            save_user_message(st.session_state['session_id'], "You", user_message, sentiment, polarity)  # Save the user message to the database
+    sentiment, polarity, subjectivity = analyze_emotional_state(user_message)
+    coping_strategy = provide_personalized_recommendations(sentiment, subjectivity)
+    st.session_state['coping_strategies'].insert(0, coping_strategy)
 
-        user_context = get_user_context()
-        response = generate_response(user_message, user_context)
+    if st.session_state['token']:  # Only save if user is logged in
+        save_coping_strategy(coping_strategy)  # Save the coping strategy to the database
+        save_user_message(st.session_state['session_id'], "You", user_message, sentiment, polarity)  # Save the user message to the database
 
-        st.session_state['messages'].insert(0, ("Bot", response))
-        if st.session_state['token']:  # Only save if user is logged in
-            save_user_message(st.session_state['session_id'], "Bot", response)  # Save the bot response to the database
+    user_context = get_user_context()
+    response = generate_response(user_message, user_context)
 
-        st.session_state['mood_tracker'].insert(0, (user_message, sentiment, polarity))
-        st.session_state.input_text = ""  # Clear the input after submission
+    st.session_state['messages'].insert(0, ("Bot", response))
+    if st.session_state['token']:  # Only save if user is logged in
+        save_user_message(st.session_state['session_id'], "Bot", response)  # Save the bot response to the database
 
-        # Display notification about the user's emotional state
-        notification_message = f"Your current emotional state is {sentiment}. We have provided a personalized coping strategy."
-        show_notification(notification_message)
+    st.session_state['mood_tracker'].insert(0, (user_message, sentiment, polarity))
+    st.session_state.input_text = ""  # Clear the input after submission
 
-        st.experimental_rerun()  # Rerun the app to update the UI after message submission
+    # Display notification about the user's emotional state
+    notification_message = f"Your current emotional state is {sentiment}. We have provided a personalized coping strategy."
+    show_notification(notification_message)
+
+    st.experimental_rerun()  # Rerun the app to update the UI after message submission
 
 def display_messages(messages):
     st.markdown("<div class='chat-container'>", unsafe_allow_html=True)
@@ -302,15 +311,8 @@ else:
         chat_history.sort(key=lambda x: x[2], reverse=True)
         st.session_state['messages'] = [(msg[0], msg[1]) for msg in chat_history]
 
-    display_messages(st.session_state['messages'])
-
-    if st.button('Logout', key="logout_button"):
-        st.session_state['token'] = None
-        st.session_state['session_id'] = None
-        st.session_state['messages'] = []
-        st.session_state['mood_tracker'] = []
-        st.session_state['coping_strategies'] = []
-        st.experimental_rerun()
+    # Trigger email analysis task after login
+    trigger_email_analysis()
 
 if st.session_state['messages']:
     display_messages(st.session_state['messages'])
