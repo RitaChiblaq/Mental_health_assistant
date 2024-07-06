@@ -248,6 +248,8 @@ def submit():
         notification_message = f"Your current emotional state is {sentiment}. We have provided a personalized coping strategy."
         show_notification(notification_message)
 
+        st.experimental_rerun()  # Rerun the app to update the UI after message submission
+
 def display_messages(messages):
     st.markdown("<div class='chat-container'>", unsafe_allow_html=True)
     for sender, message in messages:
@@ -259,11 +261,9 @@ def display_messages(messages):
 
 st.text_input("You:", key="input_text", on_change=submit, label_visibility="collapsed")
 
-display_messages(st.session_state['messages'])
-
 # Authentication section
 if st.session_state['token'] is None:
-    if st.button('Login with Gmail'):
+    if st.button('Login with Gmail', key="login_button"):
         oauth = get_google_oauth_session()
         authorization_url, state = oauth.create_authorization_url('https://accounts.google.com/o/oauth2/auth')
         st.session_state['oauth_state'] = state
@@ -304,7 +304,19 @@ else:
 
     display_messages(st.session_state['messages'])
 
-    if st.button('Logout'):
+    if st.button('Logout', key="logout_button"):
+        st.session_state['token'] = None
+        st.session_state['session_id'] = None
+        st.session_state['messages'] = []
+        st.session_state['mood_tracker'] = []
+        st.session_state['coping_strategies'] = []
+        st.experimental_rerun()
+
+if st.session_state['messages']:
+    display_messages(st.session_state['messages'])
+
+if st.session_state['token']:  # Only show logout button if logged in
+    if st.button('Logout', key="logout_button_logged_in"):
         st.session_state['token'] = None
         st.session_state['session_id'] = None
         st.session_state['messages'] = []
@@ -345,7 +357,7 @@ st.sidebar.write("A mental health information network providing insights, self-t
 st.sidebar.write("[Mindzone](https://mindzone.info/)")
 st.sidebar.write("A project aimed at promoting mental health and providing support for young people.")
 
-if st.sidebar.button("Show Session Summary"):
+if st.sidebar.button("Show Session Summary", key="session_summary_button"):
     st.sidebar.write("### Session Summary")
     for i, (message, sentiment, polarity) in enumerate(st.session_state['mood_tracker']):
         st.sidebar.write(f"{i + 1}. {message} - Sentiment: {sentiment} (Polarity: {polarity})")
