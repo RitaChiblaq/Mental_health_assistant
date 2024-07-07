@@ -1,5 +1,5 @@
-from pathlib import Path
 import os
+import requests
 import pandas as pd
 import streamlit as st
 import yaml
@@ -9,9 +9,29 @@ from sqlalchemy.orm import sessionmaker
 from config import engine
 from models import EmailAnalysis, CopingStrategy, ChatSession, EmotionalState, Message, User
 from authlib.integrations.requests_client import OAuth2Session
-import requests
 import datetime
 import uuid
+from pathlib import Path
+import logging
+from contextlib import contextmanager
+import warnings
+
+# Suppress specific warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning, module='streamlit')
+
+# Set up logging
+logging.basicConfig(filename='app.log', level=logging.ERROR)
+
+# Set page configuration to hide errors and warnings
+st.set_page_config(page_title="Mental Health Support Chatbot", initial_sidebar_state="expanded", layout="centered")
+
+# Custom context manager to suppress Streamlit errors
+@contextmanager
+def suppress_streamlit_errors():
+    try:
+        yield
+    except Exception as e:
+        logging.error(f"Streamlit error: {str(e)}")
 
 # Load configuration
 config_path = Path('/Users/ritachiblaq/Library/CloudStorage/OneDrive-Personal/HTW/4.Semester/Unternehmenssoftware/Assignments/Project/config.yaml')
@@ -58,9 +78,11 @@ def generate_response(prompt, user_context=""):
         )
         return response['choices'][0]['message']['content'].strip()
     except openai.error.OpenAIError as e:
-        return f"An error occurred: {str(e)}"
+        logging.error(f"OpenAI error: {str(e)}")
+        return "An error occurred. Please try again later."
     except Exception as e:
-        return f"An unexpected error occurred: {str(e)}"
+        logging.error(f"Unexpected error: {str(e)}")
+        return "An unexpected error occurred. Please try again later."
 
 # Enhanced Emotional State Analysis
 def analyze_emotional_state(text):
@@ -161,7 +183,8 @@ def get_user_context():
             return f"Latest email analysis:\n\nSubject: {latest_analysis.subject}\nFrom: {latest_analysis.sender}\nTo: {latest_analysis.recipient}\n\nAnalysis: {latest_analysis.analysis}\n\n"
         return ""
     except Exception as e:
-        return f"Error fetching user context: {str(e)}"
+        logging.error(f"Error fetching user context: {str(e)}")
+        return ""
 
 # Display notification
 def show_notification(message):
@@ -198,9 +221,11 @@ def trigger_email_analysis():
         if response.status_code == 202:
             st.success("Email analysis started.")
         else:
-            st.error(f"Failed to start email analysis: {response.text}")
+            logging.error(f"Failed to start email analysis: {response.text}")
+            st.error("Failed to start email analysis.")
     except Exception as e:
-        st.error(f"Failed to start email analysis: {e}")
+        logging.error(f"Failed to start email analysis: {e}")
+        st.error("Failed to start email analysis.")
 
 # Streamlit application
 st.title("Mental Health Support Chatbot")
@@ -282,15 +307,17 @@ if st.session_state['token'] is None:
     if 'code' in query_params:
         oauth = get_google_oauth_session(state=st.session_state['oauth_state'])
         try:
-            token = oauth.fetch_token(
-                'https://accounts.google.com/o/oauth2/token',
-                authorization_response=f'{redirect_uri}?code={query_params["code"][0]}',
-                grant_type='authorization_code'  # Ensure the correct grant type is used
-            )
-            st.session_state['token'] = token
-            st.experimental_rerun()  # Rerun the app to update the UI
+            with suppress_streamlit_errors():
+                token = oauth.fetch_token(
+                    'https://accounts.google.com/o/oauth2/token',
+                    authorization_response=f'{redirect_uri}?code={query_params["code"][0]}',
+                    grant_type='authorization_code'  # Ensure the correct grant type is used
+                )
+                st.session_state['token'] = token
+                st.experimental_rerun()  # Rerun the app to update the UI
         except Exception as e:
-            st.error(f"OAuth error: {e}")
+            logging.error(f"OAuth error: {str(e)}")
+            st.error("OAuth error. Please try again.")
 else:
     oauth = get_google_oauth_session(token=st.session_state['token'])
     user_info = oauth.get('https://www.googleapis.com/oauth2/v1/userinfo').json()

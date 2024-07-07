@@ -1,3 +1,4 @@
+
 from flask import Flask, request, jsonify
 from sqlalchemy.orm import scoped_session, sessionmaker
 from BE.utils import generate_embedding
