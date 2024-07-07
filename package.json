@@ -1,0 +1,7 @@
+{
+  "devDependencies": {
+    "@vue/test-utils": "^2.4.6",
+    "jest": "^29.7.0",
+    "vue-jest": "^3.0.7"
+  }
+}
