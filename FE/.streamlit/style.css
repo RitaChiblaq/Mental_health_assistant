@@ -1,99 +1,119 @@
-/* style.css */
+/* Global body styling */
 body {
-    font-family: 'Inter', sans-serif;
-    margin: 0;
+    font-family: 'Inter', sans-serif; /* Set the font family to 'Inter' */
+    margin: 0; /* Remove default margin */
 }
 
+/* Header styling */
 h1 {
-    color: #1DB981;
+    color: #1DB981; /* Set header text color to green */
+    text-align: center; /* Center align the header text */
 }
 
+/* Button styling */
 .stButton>button {
-    background-color: #1DB981;
-    color: white;
-    border-radius: 5px;
-    padding: 10px 20px;
-    cursor: pointer;
-    transition: background-color 0.3s, border-color 0.3s, color 0.3s; /* Transition for background, border, and text color */
-    box-sizing: border-box; /* Ensure padding and border are included in the element's total width and height */
+    background-color: #1DB981; /* Set button background color to green */
+    color: white; /* Set button text color to white */
+    border-radius: 5px; /* Add rounded corners to the button */
+    padding: 10px 20px; /* Add padding to the button */
+    cursor: pointer; /* Change cursor to pointer on hover */
+    transition: background-color 0.3s, border-color 0.3s, color 0.3s; /* Add transition effects */
+    box-sizing: border-box; /* Include padding and border in the element's total width and height */
 }
 
+/* Button hover effect */
 .stButton>button:hover {
-    background-color: grey; /* Set hover background color to grey */
-    border: 2px solid grey; /* Ensure border color remains grey on hover */
-    color: white; /* Ensure text color remains white on hover */
-    outline: none; /* Ensure no outline is applied on hover */
+    background-color: grey; /* Change background color to grey on hover */
+    border: 2px solid grey; /* Change border color to grey on hover */
+    color: white; /* Keep text color white on hover */
+    outline: none; /* Remove outline on hover */
     /* Remove any scaling or padding changes */
     padding: 10px 20px;
     transform: none;
     box-sizing: border-box; /* Ensure padding and border are included in the element's total width and height */
 }
 
+/* Text input styling */
 input[type="text"] {
     border: 2px solid #1DB981; /* Set border color to green */
-    border-radius: 5px;
-    padding: 10px;
-    outline: none; /* Remove outline */
-    box-sizing: border-box; /* Ensure padding and border are included in the element's total width and height */
-    position: relative;
+    border-radius: 5px; /* Add rounded corners to the text input */
+    padding: 10px; /* Add padding to the text input */
+    outline: none; /* Remove default outline */
+    box-sizing: border-box; /* Include padding and border in the element's total width and height */
+    position: relative; /* Set position to relative */
 }
 
+/* Text input focus effect */
 input[type="text"]:focus {
     border-color: #1DB981 !important; /* Ensure border color remains green on focus */
     box-shadow: none; /* Remove any box-shadow (which may appear as an outline) */
 }
 
-/* Style for the submit message */
+/* Placeholder text styling */
 input[type="text"]::placeholder {
-    color: #999999; /* Grey color for placeholder text */
-    font-size: 12px;
-    position: absolute;
-    right: 10px;
-    bottom: 5px;
-    transform: translateY(50%);
+    color: #999999; /* Set placeholder text color to grey */
+    font-size: 12px; /* Set font size for placeholder text */
+    position: absolute; /* Position placeholder text absolutely */
+    right: 10px; /* Position placeholder text 10px from the right */
+    bottom: 5px; /* Position placeholder text 5px from the bottom */
+    transform: translateY(50%); /* Center the placeholder text vertically */
 }
 
-/* Remove any unwanted lines or borders */
+/* Remove unwanted lines or borders */
 header, .css-1v3fvcr, .css-1lcbmhc {
-    border: none !important;
-    background-color: #ffffff !important;
+    border: none !important; /* Remove borders */
+    background-color: #ffffff !important; /* Set background color to white */
 }
 
 /* Specifically target the top line or border */
 .css-1v3fvcr {
-    border-top: none !important;
-    box-shadow: none !important; /* Remove any shadows that may appear as lines */
+    border-top: none !important; /* Remove top border */
+    box-shadow: none !important; /* Remove any shadows */
 }
 
-
+/* Message styling */
 .user-message, .bot-message {
-    padding: 10px;
-    border-radius: 10px;
-    max-width: 100%;
-    width: fit-content;
-    word-wrap: break-word;
+    padding: 10px; /* Add padding to messages */
+    border-radius: 10px; /* Add rounded corners to messages */
+    max-width: 100%; /* Ensure messages do not exceed 100% width */
+    width: fit-content; /* Set width to fit content */
+    word-wrap: break-word; /* Break long words */
+    margin-bottom: 10px; /* Add space between messages */
 }
 
+/* User message styling */
 .user-message {
-    align-self: flex-end;
-    background-color: #1DB981;
-    color: white;
-    text-align: left;
+    align-self: flex-end; /* Align user message to the right */
+    background-color: #1DB981; /* Set background color to green */
+    color: white; /* Set text color to white */
+    text-align: left; /* Align text to the left */
+    margin-left: auto; /* Align the user message to the right */
+    margin-bottom: 20px; /* Add space below the user message */
 }
 
+/* Bot message styling */
 .bot-message {
-    align-self: flex-start;
-    background-color: #e0e0e0;
-    color: black;
-    text-align: left;
+    align-self: flex-start; /* Align bot message to the left */
+    background-color: #e0e0e0; /* Set background color to light grey */
+    color: black; /* Set text color to black */
+    text-align: left; /* Align text to the left */
+    margin-right: auto; /* Align the bot message to the left */
+    margin-top: 10px; /* Add space above the bot message */
 }
 
+/* Text input styling */
 .stTextInput {
-    width: 100%;
-    background-color: white;
-    padding: 10px;
-    border: none;
-    border-radius: 5px;
-    box-shadow: none;
+    width: 100%; /* Set width to 100% */
+    background-color: white; /* Set background color to white */
+    padding: 10px; /* Add padding */
+    border: none; /* Remove border */
+    border-radius: 5px; /* Add rounded corners */
+    box-shadow: none; /* Remove box-shadow */
     margin-bottom: 10px; /* Add margin to ensure spacing between input and messages */
+}
+
+/* Center the button */
+.stButton>button {
+    display: block; /* Display as block element */
+    margin: 0 auto; /* Center align the button */
 }

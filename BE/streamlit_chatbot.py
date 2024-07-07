@@ -5,11 +5,11 @@ import streamlit as st
 import yaml
 from textblob import TextBlob
 import openai
+from openai import OpenAI
 from sqlalchemy.orm import sessionmaker
-from config import engine
+from db_config import engine
 from models import EmailAnalysis, CopingStrategy, ChatSession, EmotionalState, Message, User
 from authlib.integrations.requests_client import OAuth2Session
-import datetime
 import uuid
 from pathlib import Path
 import logging
@@ -25,6 +25,7 @@ logging.basicConfig(filename='app.log', level=logging.ERROR)
 # Set page configuration to hide errors and warnings
 st.set_page_config(page_title="Mental Health Support Chatbot", initial_sidebar_state="expanded", layout="centered")
 
+
 # Custom context manager to suppress Streamlit errors
 @contextmanager
 def suppress_streamlit_errors():
@@ -33,59 +34,87 @@ def suppress_streamlit_errors():
     except Exception as e:
         logging.error(f"Streamlit error: {str(e)}")
 
-# Load configuration
-config_path = Path('/Users/ritachiblaq/Library/CloudStorage/OneDrive-Personal/HTW/4.Semester/Unternehmenssoftware/Assignments/Project/config.yaml')
+
+# Load configuration from YAML file
+config_path = Path('/Users/klaudia/Documents/Business Computing/4. Semester/FINAL/Mental_health_assistant/config.yaml')
 config = yaml.safe_load(open(config_path))
 os.environ["OPENAI_API_KEY"] = config['KEYS']['openai']
-openai.api_key = os.environ["OPENAI_API_KEY"]
 google_client_id = config['KEYS']['google_client_id']
 google_client_secret = config['KEYS']['google_client_secret']
 redirect_uri = 'http://localhost:8501'
+
+# Initialize OpenAI client
+client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
 # Database session setup
 Session = sessionmaker(bind=engine)
 session = Session()
 
-# Custom CSS
+
+# Function to load custom CSS for styling
 def local_css(file_name):
     with open(file_name) as f:
         st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
 
+
 # Ensure the path to the style.css file is correct
-local_css("/Users/ritachiblaq/Library/CloudStorage/OneDrive-Personal/HTW/4.Semester/Unternehmenssoftware/Assignments/Project/FE/.streamlit/style.css")
+local_css(
+    "/Users/klaudia/Documents/Business Computing/4. Semester/FINAL/Mental_health_assistant/FE/.streamlit/style.css")
+
 
 # Initialize OAuth2 session
 def get_google_oauth_session(state=None, token=None):
+    """Initialize and return a new OAuth2 session for Google authentication."""
     return OAuth2Session(
-        client_id=google_client_id,
-        client_secret=google_client_secret,
+        client_id=config['KEYS']['google_client_id'],
+        client_secret=config['KEYS']['google_client_secret'],
         redirect_uri=redirect_uri,
         scope='openid email profile',
         state=state,
         token=token
     )
 
+
 # Function to generate a response from GPT-3.5-turbo
 def generate_response(prompt, user_context=""):
+    """
+    Generate a response from GPT-3.5-turbo based on the provided prompt and user context.
+
+    Args:
+        prompt (str): The user input prompt.
+        user_context (str): Contextual information about the user.
+
+    Returns:
+        str: The generated response from GPT-3.5-turbo.
+    """
     try:
         full_prompt = f"{user_context}\n\nUser: {prompt}"
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "You are a mental health assistant. Your goal is to provide empathetic and supportive responses to help users manage their mental health. Offer coping strategies and encourage positive actions."},
-                {"role": "user", "content": full_prompt}
-            ]
-        )
-        return response['choices'][0]['message']['content'].strip()
-    except openai.error.OpenAIError as e:
+        response = client.chat.completions.create(model="gpt-3.5-turbo",
+                                                  messages=[
+                                                      {"role": "system",
+                                                       "content": "You are a mental health assistant. Your goal is to provide empathetic and supportive responses to help users manage their mental health. Offer coping strategies and encourage positive actions."},
+                                                      {"role": "user", "content": full_prompt}
+                                                  ])
+        return response.choices[0].message.content.strip()
+    except openai.OpenAIError as e:
         logging.error(f"OpenAI error: {str(e)}")
         return "An error occurred. Please try again later."
     except Exception as e:
         logging.error(f"Unexpected error: {str(e)}")
         return "An unexpected error occurred. Please try again later."
 
+
 # Enhanced Emotional State Analysis
 def analyze_emotional_state(text):
+    """
+    Analyze the emotional state of the provided text using TextBlob.
+
+    Args:
+        text (str): The text to analyze.
+
+    Returns:
+        tuple: A tuple containing the sentiment label, polarity score, and subjectivity score.
+    """
     analysis = TextBlob(text)
     polarity = analysis.sentiment.polarity
     subjectivity = analysis.sentiment.subjectivity
@@ -101,8 +130,19 @@ def analyze_emotional_state(text):
     else:
         return "Very Negative", polarity, subjectivity
 
-# Provide detailed personalized recommendations
+
+# Provide detailed personalized recommendations based on sentiment
 def provide_personalized_recommendations(sentiment, subjectivity):
+    """
+    Provide personalized coping strategies based on the user's sentiment and subjectivity.
+
+    Args:
+        sentiment (str): The detected sentiment.
+        subjectivity (float): The subjectivity score.
+
+    Returns:
+        str: A personalized coping strategy.
+    """
     if sentiment == "Very Positive":
         strategy = """
             It's great to see you're feeling very positive. Here are some ways to maintain and leverage your positive mindset:
@@ -141,14 +181,32 @@ def provide_personalized_recommendations(sentiment, subjectivity):
         """
     return strategy
 
+
 # Save coping strategy to the database
 def save_coping_strategy(strategy):
+    """
+    Save a new coping strategy to the database.
+
+    Args:
+        strategy (str): The coping strategy text.
+    """
     new_strategy = CopingStrategy(strategy=strategy)
     session.add(new_strategy)
     session.commit()
 
+
 # Save user message and sentiment to the database
 def save_user_message(session_id, sender, message_text, sentiment=None, polarity=None):
+    """
+    Save a user message and its associated sentiment to the database.
+
+    Args:
+        session_id (str): The ID of the chat session.
+        sender (str): The sender of the message.
+        message_text (str): The text of the message.
+        sentiment (str, optional): The detected sentiment of the message.
+        polarity (float, optional): The polarity score of the message.
+    """
     new_message = Message(
         session_id=session_id,
         sender=sender,
@@ -166,8 +224,15 @@ def save_user_message(session_id, sender, message_text, sentiment=None, polarity
         session.add(new_emotion)
         session.commit()
 
-# Ensure default user exists
+
+# Ensure a default user exists in the database
 def ensure_default_user():
+    """
+    Ensure that a default user exists in the database.
+
+    Returns:
+        str: The user ID of the default user.
+    """
     user = session.query(User).filter_by(email='default_user@example.com').first()
     if not user:
         user = User(username='default_user', email='default_user@example.com', password_hash='default_hash')
@@ -175,23 +240,64 @@ def ensure_default_user():
         session.commit()
     return user.user_id
 
+
 # Fetch user context from email analysis
 def get_user_context():
+    """
+    Fetch the latest email analysis to provide user context for generating responses.
+
+    This function queries the database for the most recent email analysis, and if found,
+    constructs a context string containing the subject, sender, recipient, and analysis of the email.
+    This context is then used to help generate more informed responses in the chatbot.
+
+    Returns:
+        str: A formatted string containing the latest email analysis context, or an empty string if no analysis is found.
+    """
     try:
+        # Query the database for the most recent email analysis
         latest_analysis = session.query(EmailAnalysis).order_by(EmailAnalysis.created_at.desc()).first()
+
+        # If an analysis is found, format and return the context string
         if latest_analysis:
-            return f"Latest email analysis:\n\nSubject: {latest_analysis.subject}\nFrom: {latest_analysis.sender}\nTo: {latest_analysis.recipient}\n\nAnalysis: {latest_analysis.analysis}\n\n"
+            return (
+                f"Latest email analysis:\n\n"
+                f"Subject: {latest_analysis.subject}\n"
+                f"From: {latest_analysis.sender}\n"
+                f"To: {latest_analysis.recipient}\n\n"
+                f"Analysis: {latest_analysis.analysis}\n\n"
+            )
+
+        # Return an empty string if no analysis is found
         return ""
+
     except Exception as e:
+        # Log an error if any exception occurs
         logging.error(f"Error fetching user context: {str(e)}")
         return ""
 
+
 # Display notification
 def show_notification(message):
+    """
+    Display a toast notification with the provided message.
+
+    Args:
+        message (str): The message to be displayed in the notification.
+    """
     st.toast(message)
+
 
 # Ensure user is stored in the database
 def store_user_if_not_exists(user_info):
+    """
+    Store the user in the database if they do not already exist.
+
+    Args:
+        user_info (dict): Dictionary containing user information (name and email).
+
+    Returns:
+        str: The user ID of the existing or newly created user.
+    """
     existing_user = session.query(User).filter_by(email=user_info['email']).first()
     if not existing_user:
         new_user = User(
@@ -204,18 +310,33 @@ def store_user_if_not_exists(user_info):
         return new_user.user_id
     return existing_user.user_id
 
+
 # Retrieve chat history for the user
 def get_chat_history(user_id):
+    """
+    Retrieve the chat history for the given user ID.
+
+    Args:
+        user_id (str): The user ID for which to retrieve the chat history.
+
+    Returns:
+        list: A list of tuples containing the sender, message text, and creation time of each message.
+    """
     chat_sessions = session.query(ChatSession).filter_by(user_id=user_id).order_by(ChatSession.started_at.desc()).all()
     chat_history = []
     for chat_session in chat_sessions:
-        messages = session.query(Message).filter_by(session_id=chat_session.session_id).order_by(Message.created_at).all()
+        messages = session.query(Message).filter_by(session_id=chat_session.session_id).order_by(
+            Message.created_at).all()
         for message in messages:
             chat_history.append((message.sender, message.message_text, message.created_at))
     return chat_history
 
+
 # Trigger email analysis task
 def trigger_email_analysis():
+    """
+    Trigger the email analysis task by making a POST request to the appropriate endpoint.
+    """
     try:
         response = requests.post("http://localhost:5001/fetch_analyze_emails")
         if response.status_code == 202:
@@ -227,16 +348,17 @@ def trigger_email_analysis():
         logging.error(f"Failed to start email analysis: {e}")
         st.error("Failed to start email analysis.")
 
+
 # Streamlit application
 st.title("Mental Health Support Chatbot")
 
+# Initialize session state variables
 if 'token' not in st.session_state:
     st.session_state['token'] = None
 
 if 'oauth_state' not in st.session_state:
     st.session_state['oauth_state'] = None
 
-# Chatbot interface
 if 'messages' not in st.session_state:
     st.session_state['messages'] = []
 if 'mood_tracker' not in st.session_state:
@@ -248,7 +370,12 @@ if 'session_id' not in st.session_state:
 if 'user_id' not in st.session_state:
     st.session_state['user_id'] = None
 
+
 def submit():
+    """
+    Handle the submission of user input, including generating responses, analyzing sentiment,
+    saving data to the database, and displaying notifications.
+    """
     user_message = st.session_state.input_text.strip()
     if not user_message:
         st.warning("Please enter a message.")
@@ -266,7 +393,8 @@ def submit():
 
     if st.session_state['token']:  # Only save if user is logged in
         save_coping_strategy(coping_strategy)  # Save the coping strategy to the database
-        save_user_message(st.session_state['session_id'], "You", user_message, sentiment, polarity)  # Save the user message to the database
+        save_user_message(st.session_state['session_id'], "You", user_message, sentiment,
+                          polarity)  # Save the user message to the database
 
     user_context = get_user_context()
     response = generate_response(user_message, user_context)
@@ -284,7 +412,14 @@ def submit():
 
     st.experimental_rerun()  # Rerun the app to update the UI after message submission
 
+
 def display_messages(messages):
+    """
+    Display the chat messages in the Streamlit app.
+
+    Args:
+        messages (list): List of tuples containing sender and message text.
+    """
     st.markdown("<div class='chat-container'>", unsafe_allow_html=True)
     for sender, message in messages:
         if sender == "You":
@@ -292,6 +427,7 @@ def display_messages(messages):
         else:
             st.markdown(f"<div class='bot-message'>{message}</div>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
+
 
 st.text_input("You:", key="input_text", on_change=submit, label_visibility="collapsed")
 
@@ -314,7 +450,7 @@ if st.session_state['token'] is None:
                     grant_type='authorization_code'  # Ensure the correct grant type is used
                 )
                 st.session_state['token'] = token
-                st.experimental_rerun()  # Rerun the app to update the UI
+                st.session_state['authenticated'] = True
         except Exception as e:
             logging.error(f"OAuth error: {str(e)}")
             st.error("OAuth error. Please try again.")
@@ -386,7 +522,7 @@ st.sidebar.write("A mental health information network providing insights, self-t
 st.sidebar.write("[Mindzone](https://mindzone.info/)")
 st.sidebar.write("A project aimed at promoting mental health and providing support for young people.")
 
-if st.sidebar.button("Show Session Summary", key="session_summary_button"):
+if st.sidebar.button("Show Session Summary"):
     st.sidebar.write("### Session Summary")
     for i, (message, sentiment, polarity) in enumerate(st.session_state['mood_tracker']):
         st.sidebar.write(f"{i + 1}. {message} - Sentiment: {sentiment} (Polarity: {polarity})")

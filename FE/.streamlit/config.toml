@@ -1,6 +1,17 @@
+# Streamlit Theme Configuration
 [theme]
+
+# Primary color for interactive elements (buttons, sliders, etc.)
 primaryColor = "#1DB981"
+
+# Background color of the main content area
 backgroundColor = "#ffffff"
+
+# Background color of secondary elements (sidebars, headers, etc.)
 secondaryBackgroundColor = "#f8f9fa"
+
+# Color of the text throughout the app
 textColor = "#212529"
+
+# Font family for the text in the app
 font = "sans serif"

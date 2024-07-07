@@ -1,7 +1,5 @@
 import os
 import base64
-import time
-from textblob import TextBlob
 import yaml
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -9,15 +7,15 @@ from google.auth.transport.requests import Request
 from googleapiclient.discovery import build, logger
 from email import policy
 from email.parser import BytesParser
-import openai
+from openai import OpenAI
 
-# Load configuration
+# Load configuration from file
 config_path = "/Users/ritachiblaq/Library/CloudStorage/OneDrive-Personal/HTW/4.Semester/Unternehmenssoftware/Assignments/project/config.yaml"
 oauth_client_secret_file = "/Users/ritachiblaq/Downloads/client_secret_868701777334-iftiplo2g719831dt8f6ah0kdi4cl2db.apps.googleusercontent.com.json"
 config = yaml.safe_load(open(config_path))
 
-# Set up OpenAI API key
-openai.api_key = config['KEYS']['openai']
+# Initialize OpenAI client with API key
+client = OpenAI(api_key=config['KEYS']['openai'])
 
 # Authenticate and set up Gmail API using OAuth 2.0
 SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
@@ -26,7 +24,7 @@ creds = None
 # Token file to store the user's access and refresh tokens
 token_file = 'token.json'
 
-# Check if token file exists
+# Check if token file exists and load credentials
 if os.path.exists(token_file):
     creds = Credentials.from_authorized_user_file(token_file, SCOPES)
 
@@ -42,10 +40,23 @@ if not creds or not creds.valid:
     with open(token_file, 'w') as token:
         token.write(creds.to_json())
 
+# Build the Gmail API service
 service = build('gmail', 'v1', credentials=creds)
 
 
 def get_emails(last_email_id=None, user_id='me', query='in:sent', max_results=10):
+    """
+    Fetches emails from the user's Gmail account.
+
+    Args:
+        last_email_id (str): The ID of the last email fetched to avoid duplicates.
+        user_id (str): The ID of the user (default is 'me' which refers to the authenticated user).
+        query (str): The query string to filter emails.
+        max_results (int): The maximum number of results to fetch.
+
+    Returns:
+        list: A list of dictionaries containing email data.
+    """
     try:
         query_string = query
         if last_email_id:
@@ -73,6 +84,15 @@ def get_emails(last_email_id=None, user_id='me', query='in:sent', max_results=10
         return []
 
 def get_email_body(mime_msg):
+    """
+    Extracts the body of the email.
+
+    Args:
+        mime_msg (email.message.EmailMessage): The MIME message object.
+
+    Returns:
+        str: The email body.
+    """
     if mime_msg.is_multipart():
         for part in mime_msg.iter_parts():
             if part.get_content_type() == 'text/plain':
@@ -82,14 +102,21 @@ def get_email_body(mime_msg):
 
 
 def analyze_sentiment_and_tone(text):
+    """
+    Analyzes the sentiment and tone of the given text using OpenAI.
+
+    Args:
+        text (str): The text to analyze.
+
+    Returns:
+        str: The analysis result.
+    """
     try:
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": f"Analyze the sentiment, the emotions and tone of this text: {text}"}
-            ]
-        )
+        response = client.chat.completions.create(model="gpt-3.5-turbo",
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": f"Analyze the sentiment, the emotions and tone of this text: {text}"}
+        ])
         analysis = response.choices[0].message.content.strip()
         return analysis
     except Exception as e:
@@ -98,6 +125,15 @@ def analyze_sentiment_and_tone(text):
 
 
 def analyze_mental_health(text):
+    """
+    Analyzes the mental health indications in the given text using OpenAI.
+
+    Args:
+        text (str): The text to analyze.
+
+    Returns:
+        str: The analysis result.
+    """
     try:
         prompt = (
             "Please analyze the following email and identify any indications of mental health issues "
@@ -105,14 +141,12 @@ def analyze_mental_health(text):
             "Provide a detailed analysis and identify specific sentences or phrases that suggest these issues.\n\n"
             f"Email: {text}"
         )
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": prompt}
-            ]
-        )
-        analysis = response['choices'][0]['message']['content'].strip()
+        response = client.chat.completions.create(model="gpt-3.5-turbo",
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": prompt}
+        ])
+        analysis = response.choices[0].message.content.strip()
         return analysis
     except Exception as e:
         print(f"Error analyzing mental health: {e}")
@@ -120,6 +154,12 @@ def analyze_mental_health(text):
 
 
 def analyze_new_emails():
+    """
+    Fetches and analyzes new emails from the user's Gmail account.
+
+    Returns:
+        list: A list of dictionaries containing analyzed email data.
+    """
     try:
         # Get the list of sent emails
         results = service.users().messages().list(userId='me', q='in:sent', maxResults=10).execute()
@@ -142,5 +182,3 @@ def analyze_new_emails():
     except Exception as e:
         print(f"Error fetching emails: {e}")
         return []
-
-# Function to generate a response from GPT-3

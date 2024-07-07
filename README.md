@@ -1,113 +1,142 @@
 # Mental Health Support Chatbot
 
-Welcome to the Mental Health Support Chatbot application. This chatbot is designed to provide emotional support and advice to individuals experiencing mental health issues.
+## Overview
+The Mental Health Support Chatbot is an application designed to provide empathetic and supportive responses to users managing their mental health. It leverages the power of OpenAI's GPT-3.5-turbo model to offer personalized coping strategies and analyze the user's emotional state based on their inputs. The chatbot integrates with Gmail to analyze sent emails for mental health indicators, enhancing its ability to provide contextual responses.
 
 ## Features
+- **User Authentication**: Secure login using Google OAuth2.
+- **Chat Interface**: A friendly chat interface for user interaction.
+- **Emotional State Analysis**: Analyzes user inputs to determine their emotional state.
+- **Personalized Recommendations**: Provides tailored coping strategies based on the user's emotional state.
+- **Email Analysis**: Integrates with Gmail to fetch and analyze sent emails for mental health indicators.
+- **Session Management**: Saves chat sessions and user messages to a database.
+- **Notifications**: Displays notifications to the user regarding their emotional state and recommended strategies.
 
-- Analyzes the user's input using Natural Language Processing (NLP) to understand emotions and concerns.
-- Provides empathetic responses and immediate emotional support.
-- Suggests relevant coping strategies and resources, such as mindfulness exercises or contact information for help services.
-- Tracks mood over time and provides a session summary.
+## Setup and Installation
 
-## Installation
-
-To set up the application, follow these steps:
+### Prerequisites
+- Python 3.8 or higher
+- Node.js and npm
+- MySQL database
+- Redis server
+- Google Cloud Project with OAuth2 credentials
 
 ### Backend Setup
 
-1. **Clone the repository:**
-
+1. **Clone the Repository**
     ```bash
-    git clone https://github.com/yourusername/Mental_health_assistant.git
-    cd Mental_health_assistant/BE
+    git clone https://github.com/yourusername/mental-health-assistant.git
+    cd mental-health-assistant
     ```
 
-2. **Create a virtual environment:**
-
+2. **Setup Virtual Environment**
     ```bash
-    python3 -m venv .venv
-    source .venv/bin/activate  # On Windows use `.venv\Scripts\activate`
+    python -m venv venv
+    source venv/bin/activate
     ```
 
-3. **Install dependencies:**
-
+3. **Install Dependencies**
     ```bash
     pip install -r requirements.txt
     ```
 
-4. **Set up the OpenAI API key:**
-
-    Ensure you have a `config.yaml` file in the `BE` directory with your OpenAI API key:
-
-    ```yaml
-    KEYS:
-      openai: your_openai_api_key
+4. **Database Configuration**
+    - Update the `db_config.py` file with your MySQL database credentials.
+    - Run the initial migrations to set up the database schema:
+    ```bash
+    alembic upgrade head
     ```
 
-5. **Run the Streamlit app:**
+5. **Environment Variables**
+    - Create a `.env` file and add the necessary environment variables:
+    ```env
+    OPENAI_API_KEY=your_openai_api_key
+    GOOGLE_CLIENT_ID=your_google_client_id
+    GOOGLE_CLIENT_SECRET=your_google_client_secret
+    REDIS_URL=redis://localhost:6379/0
+    ```
 
+6. **Start Celery Worker**
     ```bash
-    streamlit run streamlit_chatbot.py --server.port 8501
+    celery -A tasks worker --loglevel=info
+    ```
+
+7. **Start the Backend Server**
+    ```bash
+    flask run
     ```
 
 ### Frontend Setup
 
-1. **Navigate to the frontend directory:**
-
+1. **Navigate to Frontend Directory**
     ```bash
-    cd ../FE
+    cd FE
     ```
 
-2. **Install dependencies:**
-
+2. **Install Dependencies**
     ```bash
     npm install
     ```
 
-3. **Start the development server:**
-
+3. **Run the Development Server**
     ```bash
     npm run serve
     ```
 
-The frontend should now be running on `http://localhost:8000`.
+### Streamlit Setup
+
+1. **Start Streamlit**
+    ```bash
+    streamlit run BE/streamlit_chatbot.py
+    ```
 
 ## Usage
 
-1. **Access the application:**
+1. **Access the Application**
+    - Open your browser and go to `http://localhost:8000`.
+    - Click "Login with Gmail" to authenticate.
 
-    Open your web browser and navigate to `http://localhost:8000`.
+2. **Interact with the Chatbot**
+    - Enter your messages in the input field and receive supportive responses from the chatbot.
 
-2. **Start a conversation:**
+3. **Email Analysis**
+    - The application will automatically fetch and analyze sent emails from your Gmail account to provide additional context.
 
-    Click the "Start" button on the homepage to begin a conversation with the chatbot.
+4. **View Session Summary**
+    - Click the "Show Session Summary" button in the sidebar to review your chat history and emotional analysis.
 
-3. **Describe your emotional state:**
+## Code Overview
 
-    Enter at least 5 words describing your current emotional state or problems. Include your feelings or emotions to get a more accurate response.
+### Backend
 
-4. **Receive support:**
+- **app.py**: The main Flask application file.
+- **db_config.py**: Database configuration settings.
+- **models.py**: SQLAlchemy models for database tables.
+- **tasks.py**: Celery tasks for background email analysis.
+- **utils.py**: Utility functions including text embedding generation.
 
-    The chatbot will analyze your input and provide an empathetic response along with relevant coping strategies or resources.
+### Frontend
 
-5. **Track your mood:**
+- **main.js**: Entry point for the Vue.js application.
+- **router.js**: Vue Router setup for handling routes.
+- **views/**: Vue components for different views (Home and Chat).
 
-    The application tracks your mood over time. You can view a mood tracking chart and session summary in the sidebar.
+### Streamlit
 
-### Sidebar Resources
+- **streamlit_chatbot.py**: Main Streamlit application file for the chatbot interface.
 
-The sidebar includes resources for immediate help:
+### Styles and Configurations
 
-- National Suicide Prevention Lifeline: 1-800-273-8255
-- Crisis Text Line: Text 'HELLO' to 741741
-- SAMHSA’s National Helpline: 1-800-662-HELP (4357)
-
-For more resources, visit [MentalHealth.gov](https://www.mentalhealth.gov/get-help/immediate-help).
+- **style.css**: Custom CSS for styling the Streamlit app.
+- **theme.toml**: Theme configuration for Streamlit.
 
 ## Contributing
 
-If you would like to contribute to this project, please fork the repository and submit a pull request. We welcome contributions that improve the functionality and usability of the chatbot.
+1. **Fork the repository**.
+2. **Create a new branch** for your feature or bugfix.
+3. **Make your changes** and commit them.
+4. **Push to your branch** and submit a pull request.
 
 ## License
 
-This project is licensed under the MIT License. See the `LICENSE` file for more details.
+This project is licensed under the MIT License.
